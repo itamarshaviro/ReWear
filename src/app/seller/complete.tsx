@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -14,42 +14,48 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useApp } from '@/context/app-context';
-import { CATEGORY_INFO, CONDITION_LABELS } from '@/data/mock';
+import type { Condition } from '@/data/mock';
+import { CATEGORY_INFO, CONDITIONS } from '@/data/mock';
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      <Text style={styles.fieldLabel}>{label}{required && <Text style={styles.req}> *</Text>}</Text>
       {children}
     </View>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.infoRow}>
-      <Text style={styles.infoValue}>{value}</Text>
-      <Text style={styles.infoLabel}>{label}</Text>
-    </View>
-  );
-}
-
 export default function CompleteScreen() {
-  const { draft, setDraft, addListing, canAddMore, listingCount, limit, isPremium, upgradePremium } = useApp();
+  const { draft, setDraft, canAddMore, listingCount, limit, isPremium, upgradePremium } = useApp();
 
+  const [name, setName] = useState(draft?.name ?? '');
+  const [brand, setBrand] = useState(draft?.brand ?? '');
+  const [selectedCondition, setSelectedCondition] = useState<Condition | null>(draft?.condition ?? null);
   const [price, setPrice] = useState('');
   const [size, setSize] = useState('');
   const [location, setLocation] = useState('');
 
-  if (!draft) {
-    router.replace('/seller/upload');
-    return null;
-  }
+  useEffect(() => {
+    if (!draft) {
+      router.replace('/seller/upload');
+    }
+  }, [draft]);
 
-  const catInfo = CATEGORY_INFO[draft.category];
+  if (!draft) return null;
 
-  function submit() {
+  const catInfo = draft.category ? CATEGORY_INFO[draft.category] : null;
+
+  function goToPreview() {
     if (!draft) return;
+    if (!name.trim()) {
+      Alert.alert('שדה חסר', 'אנא הזן שם לפריט.');
+      return;
+    }
+    if (!selectedCondition) {
+      Alert.alert('שדה חסר', 'אנא בחר מצב פריט.');
+      return;
+    }
     if (!price || !size || !location) {
       Alert.alert('שדות חסרים', 'אנא מלא מחיר, מידה ומיקום.');
       return;
@@ -68,19 +74,16 @@ export default function CompleteScreen() {
       return;
     }
 
-    addListing({
-      name: draft.name,
-      brand: draft.brand,
-      category: draft.category,
-      condition: draft.condition,
-      description: draft.description,
+    setDraft({
+      ...draft,
+      name: name.trim(),
+      brand: brand.trim() || undefined,
+      condition: selectedCondition,
       price: parseInt(price),
-      size,
-      location,
-      imageUrl: draft.imageUri,
+      size: size.trim(),
+      location: location.trim(),
     });
-    setDraft(null);
-    router.replace('/seller/dashboard');
+    router.push('/seller/preview');
   }
 
   return (
@@ -101,27 +104,79 @@ export default function CompleteScreen() {
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Image + AI results */}
+          {/* Image preview */}
           <View style={styles.imageRow}>
             <Image source={{ uri: draft.imageUri }} style={styles.thumb} contentFit="cover" />
             <View style={styles.aiInfo}>
               <View style={styles.aiTag}><Text style={styles.aiTagText}>✨ AI</Text></View>
-              <Text style={styles.aiName}>{draft.name}</Text>
-              <Text style={styles.aiBrand}>{draft.brand}</Text>
-              <InfoRow label="קטגוריה" value={`${catInfo.emoji} ${catInfo.label}`} />
-              <InfoRow label="מצב" value={CONDITION_LABELS[draft.condition]} />
+              {catInfo && <Text style={styles.catLabel}>{catInfo.emoji} {catInfo.label}</Text>}
+              {draft.color && (
+                <View style={styles.colorRow}>
+                  <Text style={styles.colorDot}>●</Text>
+                  <Text style={styles.colorText}>{draft.color}</Text>
+                </View>
+              )}
+              {draft.description ? (
+                <Text style={styles.descPreview} numberOfLines={3}>{draft.description}</Text>
+              ) : null}
             </View>
           </View>
 
-          <View style={styles.descBox}>
-            <Text style={styles.descLabel}>תיאור שנוצר ע"י AI</Text>
-            <Text style={styles.descText}>{draft.description}</Text>
-          </View>
+          {/* Name — AI pre-filled or blank */}
+          <Field label="שם הפריט" required>
+            <TextInput
+              style={styles.input}
+              placeholder="לדוגמה: ג׳ינס ישר כחול"
+              value={name}
+              onChangeText={setName}
+              textAlign="right"
+            />
+            {!draft.name && (
+              <Text style={styles.aiHint}>* AI לא זיהה — מלא ידנית</Text>
+            )}
+          </Field>
 
-          {/* User fills */}
-          <Text style={styles.sectionTitle}>השלם את הפרטים</Text>
+          {/* Brand — AI pre-filled or blank */}
+          <Field label="מותג (אופציונלי)">
+            <TextInput
+              style={styles.input}
+              placeholder="לדוגמה: Zara, H&M..."
+              value={brand}
+              onChangeText={setBrand}
+              textAlign="right"
+            />
+          </Field>
 
-          <Field label="מחיר (₪) *">
+          {/* Condition picker */}
+          <Field label="מצב הפריט" required>
+            <View style={styles.conditionList}>
+              {CONDITIONS.map(c => {
+                const active = selectedCondition === c.value;
+                return (
+                  <TouchableOpacity
+                    key={c.value}
+                    style={[styles.conditionRow, active && styles.conditionRowActive]}
+                    onPress={() => setSelectedCondition(c.value)}
+                    activeOpacity={0.75}
+                  >
+                    <View style={[styles.conditionDot, active && { backgroundColor: c.color }]} />
+                    <Text style={[styles.conditionLabel, active && { color: c.color, fontWeight: '700' }]}>
+                      {c.label}
+                    </Text>
+                    <View style={[styles.radioOuter, active && { borderColor: c.color }]}>
+                      {active && <View style={[styles.radioInner, { backgroundColor: c.color }]} />}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            {!draft.condition && (
+              <Text style={styles.aiHint}>* AI לא זיהה — בחר ידנית</Text>
+            )}
+          </Field>
+
+          {/* Price */}
+          <Field label="מחיר (₪)" required>
             <TextInput
               style={styles.input}
               placeholder="לדוגמה: 120"
@@ -132,7 +187,8 @@ export default function CompleteScreen() {
             />
           </Field>
 
-          <Field label="מידה *">
+          {/* Size */}
+          <Field label="מידה" required>
             <TextInput
               style={styles.input}
               placeholder="לדוגמה: M, 32, 38..."
@@ -142,7 +198,8 @@ export default function CompleteScreen() {
             />
           </Field>
 
-          <Field label="מיקום כללי *">
+          {/* Location */}
+          <Field label="מיקום כללי" required>
             <TextInput
               style={styles.input}
               placeholder="לדוגמה: תל אביב, הרצליה..."
@@ -160,11 +217,11 @@ export default function CompleteScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.submitBtn, !canAddMore && styles.submitBtnDisabled]}
-            onPress={submit}
+            style={[styles.previewBtn, !canAddMore && styles.previewBtnDisabled]}
+            onPress={goToPreview}
             activeOpacity={0.85}
           >
-            <Text style={styles.submitText}>פרסם פריט 🚀</Text>
+            <Text style={styles.previewBtnText}>תצוגה מקדימה →</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -186,38 +243,51 @@ const styles = StyleSheet.create({
     borderRadius: 12, padding: 12, alignItems: 'center',
   },
   premiumBannerText: { fontSize: 14, fontWeight: '700', color: '#92400E' },
-  content: { padding: 20, gap: 16 },
+  content: { padding: 20, gap: 18 },
   imageRow: { flexDirection: 'row-reverse', gap: 14, alignItems: 'flex-start' },
-  thumb: { width: 110, height: 140, borderRadius: 16 },
+  thumb: { width: 100, height: 130, borderRadius: 16 },
   aiInfo: { flex: 1, gap: 6 },
   aiTag: { backgroundColor: '#EEF2FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100, alignSelf: 'flex-end' },
   aiTagText: { fontSize: 12, fontWeight: '700', color: '#6366F1' },
-  aiName: { fontSize: 17, fontWeight: '800', color: '#111827', textAlign: 'right' },
-  aiBrand: { fontSize: 13, color: '#6B7280', textAlign: 'right' },
-  infoRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6 },
-  infoLabel: { fontSize: 12, color: '#9CA3AF', minWidth: 50 },
-  infoValue: { fontSize: 13, fontWeight: '600', color: '#374151' },
-  descBox: {
-    backgroundColor: '#EEF2FF', borderRadius: 16, padding: 14, gap: 6,
-  },
-  descLabel: { fontSize: 12, fontWeight: '700', color: '#6366F1', textAlign: 'right' },
-  descText: { fontSize: 14, color: '#374151', textAlign: 'right', lineHeight: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: '800', color: '#111827', textAlign: 'right', marginTop: 4 },
-  field: { gap: 6 },
-  fieldLabel: { fontSize: 14, fontWeight: '600', color: '#374151', textAlign: 'right' },
+  catLabel: { fontSize: 14, fontWeight: '700', color: '#374151', textAlign: 'right' },
+  colorRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 4 },
+  colorDot: { color: '#6366F1', fontSize: 12 },
+  colorText: { fontSize: 13, color: '#6B7280' },
+  descPreview: { fontSize: 12, color: '#9CA3AF', textAlign: 'right', lineHeight: 18 },
+  field: { gap: 8 },
+  fieldLabel: { fontSize: 14, fontWeight: '700', color: '#374151', textAlign: 'right' },
+  req: { color: '#F43F5E' },
   input: {
     backgroundColor: '#fff', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
     fontSize: 16, color: '#111827', borderWidth: 1.5, borderColor: '#E5E7EB',
   },
+  aiHint: { fontSize: 11, color: '#F59E0B', textAlign: 'right', marginTop: 2 },
+  conditionList: {
+    backgroundColor: '#fff', borderRadius: 16, borderWidth: 1.5, borderColor: '#E5E7EB',
+    overflow: 'hidden',
+  },
+  conditionRow: {
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 12,
+    paddingVertical: 14, paddingHorizontal: 16,
+    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+  },
+  conditionRowActive: { backgroundColor: '#FAFAFA' },
+  conditionDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#E5E7EB' },
+  conditionLabel: { flex: 1, fontSize: 15, color: '#374151', textAlign: 'right' },
+  radioOuter: {
+    width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#D1D5DB',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  radioInner: { width: 10, height: 10, borderRadius: 5 },
   limitRow: { alignItems: 'flex-end' },
   limitText: { fontSize: 13, color: '#9CA3AF' },
   upgradeLink: { color: '#6366F1', fontWeight: '700' },
-  submitBtn: {
+  previewBtn: {
     backgroundColor: '#6366F1', borderRadius: 16, paddingVertical: 18,
     alignItems: 'center', marginTop: 4,
     shadowColor: '#6366F1', shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3, shadowRadius: 16, elevation: 8,
   },
-  submitBtnDisabled: { backgroundColor: '#9CA3AF', shadowOpacity: 0.1 },
-  submitText: { fontSize: 17, fontWeight: '800', color: '#fff' },
+  previewBtnDisabled: { backgroundColor: '#9CA3AF', shadowOpacity: 0.1 },
+  previewBtnText: { fontSize: 17, fontWeight: '800', color: '#fff' },
 });

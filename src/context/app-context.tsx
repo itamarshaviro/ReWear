@@ -1,15 +1,18 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
-import type { ClothingItem, InterestRequest, Chat, ChatMessage, AiDraft, Category, Condition } from '@/data/mock';
+import type { ClothingItem, InterestRequest, Chat, ChatMessage, AiDraft, Rating } from '@/data/mock';
 import { MOCK_ITEMS } from '@/data/mock';
 
 const FREE_LIMIT = 5;
 const PREMIUM_LIMIT = 50;
+
+type ItemStatus = 'active' | 'sold' | 'pending';
 
 type AppContextType = {
   myListings: ClothingItem[];
   allListings: ClothingItem[];
   requests: InterestRequest[];
   chats: Chat[];
+  ratings: Rating[];
   isPremium: boolean;
   canAddMore: boolean;
   listingCount: number;
@@ -17,9 +20,15 @@ type AppContextType = {
   draft: AiDraft | null;
   setDraft: (d: AiDraft | null) => void;
   addListing: (item: Omit<ClothingItem, 'id' | 'sellerId' | 'sellerName' | 'distance'>) => void;
+  deleteListing: (id: string) => void;
+  markListingAsSold: (id: string) => void;
+  getItemStatus: (itemId: string) => ItemStatus;
+  getLikesCount: (itemId: string) => number;
   sendInterest: (item: ClothingItem) => void;
   respondToRequest: (requestId: string, accept: boolean) => void;
   sendMessage: (chatId: string, text: string, from: 'buyer' | 'seller') => void;
+  markSold: (chatId: string) => void;
+  submitRating: (chatId: string, score: number, review: string, role: 'buyer' | 'seller') => void;
   upgradePremium: () => void;
 };
 
@@ -42,8 +51,10 @@ const INITIAL_CHATS: Chat[] = [
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [myListings, setMyListings] = useState<ClothingItem[]>([]);
+  const [soldItemIds, setSoldItemIds] = useState<string[]>([]);
   const [requests, setRequests] = useState<InterestRequest[]>([]);
   const [chats, setChats] = useState<Chat[]>(INITIAL_CHATS);
+  const [ratings, setRatings] = useState<Rating[]>([]);
   const [isPremium, setIsPremium] = useState(false);
   const [draft, setDraft] = useState<AiDraft | null>(null);
 
@@ -60,6 +71,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       distance: 0,
     };
     setMyListings(prev => [...prev, newItem]);
+  }
+
+  function deleteListing(id: string) {
+    setMyListings(prev => prev.filter(item => item.id !== id));
+  }
+
+  function markListingAsSold(id: string) {
+    setSoldItemIds(prev => [...prev, id]);
+  }
+
+  function getItemStatus(itemId: string): ItemStatus {
+    if (soldItemIds.includes(itemId)) return 'sold';
+    const hasPending = requests.some(r => r.itemId === itemId && r.status === 'pending');
+    if (hasPending) return 'pending';
+    return 'active';
+  }
+
+  function getLikesCount(itemId: string): number {
+    return requests.filter(r => r.itemId === itemId).length;
   }
 
   function sendInterest(item: ClothingItem) {
@@ -102,6 +132,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  function markSold(chatId: string) {
+    setChats(prev => prev.map(c => c.id === chatId ? { ...c, isClosed: true } : c));
+  }
+
+  function submitRating(chatId: string, score: number, review: string, role: 'buyer' | 'seller') {
+    const newRating: Rating = {
+      id: `rating-${Date.now()}`,
+      chatId,
+      score,
+      review,
+      role,
+      createdAt: new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
+    };
+    setRatings(prev => [...prev, newRating]);
+  }
+
   function sendMessage(chatId: string, text: string, from: 'buyer' | 'seller') {
     const msg: ChatMessage = {
       id: `msg-${Date.now()}`,
@@ -118,6 +164,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       allListings,
       requests,
       chats,
+      ratings,
       isPremium,
       canAddMore,
       listingCount: myListings.length,
@@ -125,9 +172,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       draft,
       setDraft,
       addListing,
+      deleteListing,
+      markListingAsSold,
+      getItemStatus,
+      getLikesCount,
       sendInterest,
       respondToRequest,
       sendMessage,
+      markSold,
+      submitRating,
       upgradePremium: () => setIsPremium(true),
     }}>
       {children}

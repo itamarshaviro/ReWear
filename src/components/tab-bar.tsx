@@ -18,6 +18,7 @@ export function TabBar() {
 
   const tabs: Tab[] = [
     { path: '/',         label: 'גלה',     icon: '🏠' },
+    { path: '/map',      label: 'מפה',     icon: '🗺️' },
     { path: '/messages', label: 'הודעות',  icon: '💬', badge: totalBadge > 0 ? totalBadge : undefined },
   ];
 

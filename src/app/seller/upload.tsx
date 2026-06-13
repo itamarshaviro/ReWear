@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -13,53 +14,99 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useApp } from '@/context/app-context';
-import { AI_RESULTS_BY_CATEGORY } from '@/data/mock';
+import { AI_RESULTS_BY_CATEGORY, CONDITION_LABELS } from '@/data/mock';
+import { enhanceImage, isCloudinaryConfigured } from '@/lib/cloudinary';
+import type { Category, AiConfidence } from '@/data/mock';
+import type { EnhanceResult } from '@/lib/cloudinary';
 
-type Phase = 'pick' | 'analyzing' | 'done';
+type Phase = 'pick' | 'processing' | 'enhanced' | 'analyzing' | 'done';
+type AiResult = typeof AI_RESULTS_BY_CATEGORY[Category];
+
+const CONFIDENCE_THRESHOLD = 0.70;
+
+function ConfidenceRow({ label, value, conf }: { label: string; value: string | undefined; conf: number | undefined }) {
+  const detected = conf !== undefined && conf >= CONFIDENCE_THRESHOLD && value !== undefined;
+  return (
+    <View style={styles.fieldRow}>
+      <View style={[styles.confBadge, detected ? styles.confGreen : styles.confGray]}>
+        <Text style={[styles.confText, detected ? styles.confTextGreen : styles.confTextGray]}>
+          {detected ? `${Math.round(conf! * 100)}%` : '—'}
+        </Text>
+      </View>
+      <Text style={styles.fieldValue} numberOfLines={1}>{detected ? value : 'לא זוהה'}</Text>
+      <Text style={styles.fieldLabel}>{label}</Text>
+    </View>
+  );
+}
 
 export default function UploadScreen() {
   const { setDraft } = useApp();
-  const [imageUri, setImageUri] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>('pick');
+  const [enhance, setEnhance] = useState<EnhanceResult | null>(null);
+  const [aiResult, setAiResult] = useState<AiResult | null>(null);
 
   async function pickImage(source: 'camera' | 'gallery') {
     let result: ImagePicker.ImagePickerResult;
 
     if (source === 'camera') {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) {
-        Alert.alert('נדרשת הרשאה', 'אנא אפשר גישה למצלמה בהגדרות.');
-        return;
-      }
-      result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.85 });
+      if (!perm.granted) { Alert.alert('נדרשת הרשאה', 'אנא אפשר גישה למצלמה בהגדרות.'); return; }
+      result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.9 });
     } else {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) {
-        Alert.alert('נדרשת הרשאה', 'אנא אפשר גישה לגלריה בהגדרות.');
-        return;
-      }
-      result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', quality: 0.85 });
+      if (!perm.granted) { Alert.alert('נדרשת הרשאה', 'אנא אפשר גישה לגלריה בהגדרות.'); return; }
+      result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', quality: 0.9 });
     }
 
     if (result.canceled || !result.assets[0]) return;
-
     const uri = result.assets[0].uri;
-    setImageUri(uri);
-    setPhase('analyzing');
+    setPhase('processing');
 
-    // Simulate AI analysis
-    setTimeout(() => setPhase('done'), 2400);
+    try {
+      // Run Cloudinary enhancement and AI analysis in parallel
+      const [enhanceResult, aiRes] = await Promise.all([
+        enhanceImage(uri),
+        new Promise<AiResult>(resolve =>
+          setTimeout(() => {
+            const cats = Object.keys(AI_RESULTS_BY_CATEGORY) as Category[];
+            const cat = cats[Math.floor(Math.random() * cats.length)];
+            resolve(AI_RESULTS_BY_CATEGORY[cat]);
+          }, 2000)
+        ),
+      ]);
+      setEnhance(enhanceResult);
+      setAiResult(aiRes);
+      setPhase('enhanced');
+    } catch {
+      Alert.alert('שגיאה', 'לא ניתן לשפר את התמונה. ממשיך עם התמונה המקורית.');
+      const cats = Object.keys(AI_RESULTS_BY_CATEGORY) as Category[];
+      const cat = cats[Math.floor(Math.random() * cats.length)];
+      setEnhance({ originalUri: uri, enhancedUri: uri, isDemo: true });
+      setAiResult(AI_RESULTS_BY_CATEGORY[cat]);
+      setPhase('enhanced');
+    }
   }
 
   function continueToComplete() {
-    if (!imageUri) return;
-    // Pick a random AI result for the demo
-    const categories = Object.keys(AI_RESULTS_BY_CATEGORY) as Array<keyof typeof AI_RESULTS_BY_CATEGORY>;
-    const randomCat = categories[Math.floor(Math.random() * categories.length)];
-    const aiResult = AI_RESULTS_BY_CATEGORY[randomCat];
-    setDraft({ imageUri, ...aiResult });
+    if (!enhance || !aiResult) return;
+    const conf = aiResult.confidence as AiConfidence | undefined;
+    const pick = <T,>(val: T | undefined, field: keyof AiConfidence) =>
+      conf && conf[field] >= CONFIDENCE_THRESHOLD ? val : undefined;
+
+    setDraft({
+      imageUri: enhance.enhancedUri,
+      name:      pick(aiResult.name,      'name'),
+      brand:     pick(aiResult.brand,     'brand'),
+      category:  pick(aiResult.category,  'category') ?? aiResult.category,
+      condition: pick(aiResult.condition, 'condition'),
+      color:     pick(aiResult.color,     'color'),
+      description: aiResult.description,
+      confidence: conf,
+    });
     router.push('/seller/complete');
   }
+
+  const conf = aiResult?.confidence;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -71,20 +118,32 @@ export default function UploadScreen() {
         <View style={{ width: 40 }} />
       </View>
 
+      {/* ── Phase: pick ── */}
       {phase === 'pick' && (
         <View style={styles.pickArea}>
           <View style={styles.heroIcon}>
             <Text style={styles.heroEmoji}>📸</Text>
           </View>
           <Text style={styles.pickTitle}>הוסף תמונה של הפריט</Text>
-          <Text style={styles.pickSub}>ה-AI ימלא אוטומטית את הפרטים</Text>
+          <Text style={styles.pickSub}>ה-AI ישפר את התמונה ויזהה פרטים אוטומטית</Text>
+
+          {isCloudinaryConfigured() ? (
+            <View style={styles.cloudinaryBadge}>
+              <Text style={styles.cloudinaryBadgeText}>☁️ שיפור תמונה אוטומטי מופעל</Text>
+            </View>
+          ) : (
+            <View style={[styles.cloudinaryBadge, styles.demoBadge]}>
+              <Text style={[styles.cloudinaryBadgeText, styles.demoBadgeText]}>
+                מצב דמו · הגדר Cloudinary לשיפור אמיתי
+              </Text>
+            </View>
+          )}
 
           <View style={styles.pickButtons}>
             <TouchableOpacity style={[styles.pickBtn, styles.cameraBtn]} onPress={() => pickImage('camera')} activeOpacity={0.85}>
               <Text style={styles.pickBtnEmoji}>📷</Text>
               <Text style={[styles.pickBtnLabel, styles.cameraBtnText]}>צלם עכשיו</Text>
             </TouchableOpacity>
-
             <TouchableOpacity style={[styles.pickBtn, styles.galleryBtn]} onPress={() => pickImage('gallery')} activeOpacity={0.85}>
               <Text style={styles.pickBtnEmoji}>🖼️</Text>
               <Text style={[styles.pickBtnLabel, styles.galleryBtnText]}>בחר מגלריה</Text>
@@ -97,31 +156,94 @@ export default function UploadScreen() {
         </View>
       )}
 
-      {(phase === 'analyzing' || phase === 'done') && imageUri && (
-        <View style={styles.analysisArea}>
-          <View style={styles.imageContainer}>
-            <Image source={{ uri: imageUri }} style={styles.preview} contentFit="cover" />
+      {/* ── Phase: processing ── */}
+      {phase === 'processing' && (
+        <View style={styles.processingArea}>
+          <ActivityIndicator size="large" color="#6366F1" />
+          <Text style={styles.processingTitle}>מעבד את התמונה...</Text>
+          <View style={styles.stepsList}>
+            <ProcessStep emoji="☁️" label="מעלה ל-Cloudinary" />
+            <ProcessStep emoji="✨" label="משפר בהירות וצבעים" />
+            <ProcessStep emoji="⬜" label="מנקה רקע" />
+            <ProcessStep emoji="🤖" label="מנתח פריט עם AI" />
           </View>
-
-          {phase === 'analyzing' ? (
-            <View style={styles.analyzingCard}>
-              <ActivityIndicator size="large" color="#6366F1" />
-              <Text style={styles.analyzingTitle}>ה-AI מנתח את הפריט...</Text>
-              <Text style={styles.analyzingSub}>מזהה קטגוריה, מותג ומצב</Text>
-            </View>
-          ) : (
-            <View style={styles.doneCard}>
-              <Text style={styles.doneIcon}>✨</Text>
-              <Text style={styles.doneTitle}>ניתוח הושלם!</Text>
-              <Text style={styles.doneSub}>הפרטים מולאו אוטומטית.{'\n'}תוכל לערוך בשלב הבא.</Text>
-              <TouchableOpacity style={styles.continueBtn} onPress={continueToComplete} activeOpacity={0.85}>
-                <Text style={styles.continueBtnText}>המשך להשלמת הפרסום</Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
       )}
+
+      {/* ── Phase: enhanced — before/after + AI results ── */}
+      {phase === 'enhanced' && enhance && (
+        <ScrollView contentContainerStyle={styles.resultArea} showsVerticalScrollIndicator={false}>
+
+          {/* Before / After */}
+          <Text style={styles.sectionTitle}>שיפור תמונה</Text>
+          {enhance.isDemo && (
+            <View style={styles.demoNotice}>
+              <Text style={styles.demoNoticeText}>מצב דמו — הגדר EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME לשיפור אמיתי</Text>
+            </View>
+          )}
+
+          <View style={styles.beforeAfterRow}>
+            <View style={styles.imageBox}>
+              <Image source={{ uri: enhance.originalUri }} style={styles.beforeAfterImg} contentFit="cover" />
+              <View style={styles.imageLabel}>
+                <Text style={styles.imageLabelText}>לפני</Text>
+              </View>
+            </View>
+            <View style={styles.arrowBox}>
+              <Text style={styles.arrow}>→</Text>
+            </View>
+            <View style={styles.imageBox}>
+              <Image source={{ uri: enhance.enhancedUri }} style={styles.beforeAfterImg} contentFit="cover" />
+              <View style={[styles.imageLabel, styles.imageLabelAfter]}>
+                <Text style={[styles.imageLabelText, styles.imageLabelTextAfter]}>אחרי ✨</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Transformations applied */}
+          <View style={styles.transformRow}>
+            {['בהירות', 'ניגודיות', 'צבע', 'יישור', 'רקע לבן'].map(t => (
+              <View key={t} style={styles.transformChip}>
+                <Text style={styles.transformChipText}>✓ {t}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* AI results */}
+          {aiResult && (
+            <View style={styles.aiCard}>
+              <View style={styles.aiCardHeader}>
+                <Text style={styles.aiCardTitle}>זיהוי AI</Text>
+                <View style={styles.aiTag}><Text style={styles.aiTagText}>✨ AI</Text></View>
+              </View>
+              <View style={styles.confTable}>
+                <ConfidenceRow label="שם"   value={aiResult.name}       conf={conf?.name} />
+                <ConfidenceRow label="מותג" value={aiResult.brand}      conf={conf?.brand} />
+                <ConfidenceRow label="צבע"  value={aiResult.color}      conf={conf?.color} />
+                <ConfidenceRow
+                  label="מצב"
+                  value={aiResult.condition ? CONDITION_LABELS[aiResult.condition] : undefined}
+                  conf={conf?.condition}
+                />
+              </View>
+            </View>
+          )}
+
+          <TouchableOpacity style={styles.continueBtn} onPress={continueToComplete} activeOpacity={0.85}>
+            <Text style={styles.continueBtnText}>המשך להשלמת הפרסום →</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      )}
     </SafeAreaView>
+  );
+}
+
+function ProcessStep({ emoji, label }: { emoji: string; label: string }) {
+  return (
+    <View style={styles.processStep}>
+      <Text style={styles.processStepLabel}>{label}</Text>
+      <Text style={styles.processStepEmoji}>{emoji}</Text>
+    </View>
   );
 }
 
@@ -134,16 +256,20 @@ const styles = StyleSheet.create({
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', transform: [{ scaleX: -1 }] },
   backText: { fontSize: 22, color: '#6366F1', fontWeight: '700' },
   title: { fontSize: 18, fontWeight: '800', color: '#111827' },
-  pickArea: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 16 },
-  heroIcon: {
-    width: 120, height: 120, borderRadius: 60,
-    backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center',
-    marginBottom: 8,
-  },
+
+  // Pick phase
+  pickArea: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 14 },
+  heroIcon: { width: 120, height: 120, borderRadius: 60, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   heroEmoji: { fontSize: 56 },
   pickTitle: { fontSize: 22, fontWeight: '800', color: '#111827' },
   pickSub: { fontSize: 15, color: '#6B7280', textAlign: 'center' },
-  pickButtons: { width: '100%', gap: 14, marginTop: 8 },
+  cloudinaryBadge: {
+    backgroundColor: '#EEF2FF', borderRadius: 100, paddingHorizontal: 16, paddingVertical: 8,
+  },
+  cloudinaryBadgeText: { fontSize: 13, fontWeight: '700', color: '#6366F1' },
+  demoBadge: { backgroundColor: '#FEF3C7' },
+  demoBadgeText: { color: '#92400E' },
+  pickButtons: { width: '100%', gap: 14, marginTop: 4 },
   pickBtn: { borderRadius: 20, paddingVertical: 22, paddingHorizontal: 24, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 12 },
   cameraBtn: { backgroundColor: '#6366F1' },
   galleryBtn: { backgroundColor: '#fff', borderWidth: 2, borderColor: '#E5E7EB' },
@@ -152,35 +278,65 @@ const styles = StyleSheet.create({
   cameraBtnText: { color: '#fff' },
   galleryBtnText: { color: '#374151' },
   webNote: { fontSize: 12, color: '#9CA3AF', marginTop: 4 },
-  analysisArea: { flex: 1, padding: 20, gap: 20 },
-  imageContainer: {
-    height: 260, borderRadius: 20, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12, shadowRadius: 12, elevation: 6,
+
+  // Processing phase
+  processingArea: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 24, padding: 32 },
+  processingTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
+  stepsList: { width: '100%', gap: 12 },
+  processStep: {
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 10,
+    backgroundColor: '#fff', borderRadius: 14, padding: 14,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
   },
-  preview: { width: '100%', height: '100%' },
-  analyzingCard: {
-    backgroundColor: '#fff', borderRadius: 20, padding: 28,
-    alignItems: 'center', gap: 12,
-    shadowColor: '#6366F1', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1, shadowRadius: 12, elevation: 4,
+  processStepEmoji: { fontSize: 22 },
+  processStepLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: '#374151', textAlign: 'right' },
+
+  // Enhanced phase
+  resultArea: { padding: 20, gap: 16 },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#111827', textAlign: 'right' },
+  demoNotice: { backgroundColor: '#FEF3C7', borderRadius: 12, padding: 10 },
+  demoNoticeText: { fontSize: 12, color: '#92400E', textAlign: 'center' },
+  beforeAfterRow: { flexDirection: 'row-reverse', gap: 8, alignItems: 'center' },
+  imageBox: { flex: 1, borderRadius: 16, overflow: 'hidden', position: 'relative' },
+  beforeAfterImg: { width: '100%', height: 200 },
+  imageLabel: {
+    position: 'absolute', bottom: 8, right: 8,
+    backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
   },
-  analyzingTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
-  analyzingSub: { fontSize: 14, color: '#6B7280' },
-  doneCard: {
-    backgroundColor: '#fff', borderRadius: 20, padding: 28,
-    alignItems: 'center', gap: 10,
-    shadowColor: '#6366F1', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1, shadowRadius: 12, elevation: 4,
+  imageLabelAfter: { backgroundColor: 'rgba(99,102,241,0.85)' },
+  imageLabelText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  imageLabelTextAfter: { color: '#fff' },
+  arrowBox: { width: 28, alignItems: 'center' },
+  arrow: { fontSize: 20, color: '#6366F1', fontWeight: '700' },
+  transformRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
+  transformChip: {
+    backgroundColor: '#D1FAE5', borderRadius: 100, paddingHorizontal: 12, paddingVertical: 5,
   },
-  doneIcon: { fontSize: 40 },
-  doneTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
-  doneSub: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 22 },
+  transformChipText: { fontSize: 12, fontWeight: '700', color: '#059669' },
+
+  // AI card
+  aiCard: {
+    backgroundColor: '#fff', borderRadius: 20, padding: 16, gap: 14,
+    shadowColor: '#6366F1', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 4,
+  },
+  aiCardHeader: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' },
+  aiCardTitle: { fontSize: 16, fontWeight: '800', color: '#111827' },
+  aiTag: { backgroundColor: '#EEF2FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100 },
+  aiTagText: { fontSize: 12, fontWeight: '700', color: '#6366F1' },
+  confTable: { gap: 10 },
+  fieldRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 10 },
+  fieldLabel: { fontSize: 13, color: '#9CA3AF', width: 40, textAlign: 'right' },
+  fieldValue: { flex: 1, fontSize: 14, fontWeight: '600', color: '#111827', textAlign: 'right' },
+  confBadge: { borderRadius: 100, paddingHorizontal: 8, paddingVertical: 3, minWidth: 44, alignItems: 'center' },
+  confGreen: { backgroundColor: '#D1FAE5' },
+  confGray: { backgroundColor: '#F3F4F6' },
+  confText: { fontSize: 11, fontWeight: '700' },
+  confTextGreen: { color: '#059669' },
+  confTextGray: { color: '#9CA3AF' },
+
   continueBtn: {
-    marginTop: 8, backgroundColor: '#6366F1', borderRadius: 16,
-    paddingVertical: 16, paddingHorizontal: 32, width: '100%', alignItems: 'center',
-    shadowColor: '#6366F1', shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3, shadowRadius: 12, elevation: 6,
+    backgroundColor: '#6366F1', borderRadius: 16, paddingVertical: 18, alignItems: 'center',
+    shadowColor: '#6366F1', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6,
   },
   continueBtnText: { fontSize: 16, fontWeight: '800', color: '#fff' },
 });

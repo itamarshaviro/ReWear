@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import {
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -33,7 +34,7 @@ function Bubble({ msg }: { msg: ChatMessage }) {
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { chats, sendMessage } = useApp();
+  const { chats, sendMessage, markSold } = useApp();
   const [text, setText] = useState('');
   const listRef = useRef<FlatList>(null);
 
@@ -60,6 +61,23 @@ export default function ChatScreen() {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   }
 
+  function handleMarkSold() {
+    Alert.alert(
+      'סמן כנמכר',
+      `האם לסמן את "${chat!.itemName}" כנמכר ולעבור לדירוג?`,
+      [
+        { text: 'ביטול', style: 'cancel' },
+        {
+          text: 'כן, נמכר!',
+          onPress: () => {
+            markSold(chat!.id);
+            router.push(`/rating/${chat!.id}`);
+          },
+        },
+      ]
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -70,8 +88,24 @@ export default function ChatScreen() {
           <Text style={styles.headerName}>{chat.otherPartyName}</Text>
           <Text style={styles.headerItem} numberOfLines={1}>{chat.itemName}</Text>
         </View>
-        <Image source={{ uri: chat.itemImage }} style={styles.headerThumb} contentFit="cover" />
+        <View style={styles.headerRight}>
+          <Image source={{ uri: chat.itemImage }} style={styles.headerThumb} contentFit="cover" />
+          {!chat.isClosed && (
+            <TouchableOpacity style={styles.soldBtn} onPress={handleMarkSold} activeOpacity={0.8}>
+              <Text style={styles.soldBtnText}>נמכר</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
+
+      {chat.isClosed && (
+        <View style={styles.closedBanner}>
+          <Text style={styles.closedBannerText}>✅ עסקה הושלמה</Text>
+          <TouchableOpacity onPress={() => router.push(`/rating/${chat.id}`)}>
+            <Text style={styles.rateLink}>דרג →</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
         <FlatList
@@ -83,21 +117,23 @@ export default function ChatScreen() {
           onLayout={() => listRef.current?.scrollToEnd({ animated: false })}
         />
 
-        <View style={styles.inputBar}>
-          <TouchableOpacity style={styles.sendBtn} onPress={send} activeOpacity={0.85}>
-            <Text style={styles.sendIcon}>↑</Text>
-          </TouchableOpacity>
-          <TextInput
-            style={styles.input}
-            value={text}
-            onChangeText={setText}
-            placeholder="הקלד הודעה..."
-            textAlign="right"
-            multiline
-            onSubmitEditing={send}
-            returnKeyType="send"
-          />
-        </View>
+        {!chat.isClosed && (
+          <View style={styles.inputBar}>
+            <TouchableOpacity style={styles.sendBtn} onPress={send} activeOpacity={0.85}>
+              <Text style={styles.sendIcon}>↑</Text>
+            </TouchableOpacity>
+            <TextInput
+              style={styles.input}
+              value={text}
+              onChangeText={setText}
+              placeholder="הקלד הודעה..."
+              textAlign="right"
+              multiline
+              onSubmitEditing={send}
+              returnKeyType="send"
+            />
+          </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -116,7 +152,19 @@ const styles = StyleSheet.create({
   headerInfo: { flex: 1, alignItems: 'center', gap: 2 },
   headerName: { fontSize: 15, fontWeight: '700', color: '#111827' },
   headerItem: { fontSize: 12, color: '#6366F1', fontWeight: '600' },
+  headerRight: { alignItems: 'flex-end', gap: 6 },
   headerThumb: { width: 40, height: 40, borderRadius: 10 },
+  soldBtn: {
+    backgroundColor: '#22C55E', borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 5,
+  },
+  soldBtnText: { fontSize: 11, fontWeight: '800', color: '#fff' },
+  closedBanner: {
+    backgroundColor: '#D1FAE5', paddingHorizontal: 20, paddingVertical: 10,
+    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
+  },
+  closedBannerText: { fontSize: 14, fontWeight: '700', color: '#065F46' },
+  rateLink: { fontSize: 14, fontWeight: '700', color: '#059669' },
   messages: { padding: 16, gap: 10 },
   bubbleRow: { flexDirection: 'row' },
   bubbleRowRight: { justifyContent: 'flex-end' },

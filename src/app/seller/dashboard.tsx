@@ -133,7 +133,12 @@ export default function DashboardScreen() {
 
         {/* My listings */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>הפריטים שפרסמתי</Text>
+          <View style={styles.sectionHeader}>
+            <TouchableOpacity onPress={() => router.push('/seller/my-items')} style={styles.manageBtn}>
+              <Text style={styles.manageBtnText}>ניהול ←</Text>
+            </TouchableOpacity>
+            <Text style={styles.sectionTitle}>הפריטים שפרסמתי</Text>
+          </View>
           {myListings.length === 0 ? (
             <View style={styles.emptyListings}>
               <Text style={styles.emptyEmoji}>📦</Text>
@@ -167,6 +172,8 @@ const styles = StyleSheet.create({
   premiumBadgeText: { fontSize: 13, fontWeight: '700', color: '#92400E' },
   freeBadge: { backgroundColor: '#EEF2FF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100 },
   freeBadgeText: { fontSize: 12, fontWeight: '700', color: '#6366F1' },
+  manageBtn: { backgroundColor: '#EEF2FF', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 100 },
+  manageBtnText: { fontSize: 12, fontWeight: '700', color: '#6366F1' },
   content: { padding: 20, gap: 24, paddingBottom: 100 },
   section: { gap: 12 },
   sectionHeader: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },
