@@ -1,98 +1,106 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+import { StatusBar } from 'expo-status-bar';
+import { router, Redirect } from 'expo-router';
+import { useAuth } from '@/context/auth-context';
+import { TabBar } from '@/components/tab-bar';
 
 export default function HomeScreen() {
+  const { user } = useAuth();
+
+  // Redirect to registration if not logged in
+  if (!user) {
+    return <Redirect href="/auth/register" />;
+  }
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar style="dark" />
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.push('/seller/dashboard')} style={styles.headerBtn}>
+          <Text style={styles.headerBtnText}>👗</Text>
+        </TouchableOpacity>
+        <Text style={styles.logo}>ReWear</Text>
+        <TouchableOpacity onPress={() => {}} style={styles.headerBtn}>
+          <Text style={styles.headerBtnText}>👤</Text>
+          <View style={styles.userDot} />
+        </TouchableOpacity>
+      </View>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+      {/* Greeting */}
+      <View style={styles.greeting}>
+        <Text style={styles.greetingText}>שלום, {user.firstName}! 👋</Text>
+        <Text style={styles.greetingSub}>מה תרצה לעשות היום?</Text>
+      </View>
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+      {/* Role cards */}
+      <View style={styles.cards}>
+        <TouchableOpacity
+          style={[styles.roleCard, styles.buyerCard]}
+          onPress={() => router.push('/buyer/category')}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.roleEmoji}>🛍️</Text>
+          <Text style={[styles.roleTitle, styles.lightText]}>אני קונה</Text>
+          <Text style={[styles.roleDesc, styles.lightMuted]}>גלה פריטים ייחודיים{'\n'}קרוב אליך</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.roleCard, styles.sellerCard]}
+          onPress={() => router.push('/seller/upload')}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.roleEmoji}>👗</Text>
+          <Text style={[styles.roleTitle, styles.darkText]}>אני מוכר</Text>
+          <Text style={[styles.roleDesc, styles.darkMuted]}>פרסם פריט בקלות{'\n'}עם AI שעושה הכל</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.subFooter}>חינם עד 5 פריטים · פרמיום עד 50</Text>
+
+      <TabBar />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+  container: { flex: 1, backgroundColor: '#F8F7FF' },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 10,
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+  logo: { fontSize: 22, fontWeight: '900', color: '#6366F1', letterSpacing: -0.5 },
+  headerBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  headerBtnText: { fontSize: 22 },
+  userDot: {
+    position: 'absolute', top: 4, right: 4,
+    width: 8, height: 8, borderRadius: 4, backgroundColor: '#22C55E',
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+  greeting: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 4, gap: 4 },
+  greetingText: { fontSize: 22, fontWeight: '800', color: '#111827', textAlign: 'right' },
+  greetingSub: { fontSize: 14, color: '#6B7280', textAlign: 'right' },
+  cards: { flex: 1, gap: 16, paddingHorizontal: 24, justifyContent: 'center' },
+  roleCard: {
+    borderRadius: 24, padding: 32, alignItems: 'center', gap: 10,
+    shadowColor: '#6366F1', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.14, shadowRadius: 20, elevation: 8,
   },
-  title: {
-    textAlign: 'center',
+  buyerCard: { backgroundColor: '#6366F1' },
+  sellerCard: {
+    backgroundColor: '#fff', borderWidth: 2, borderColor: '#E5E7EB',
+    shadowColor: '#000', shadowOpacity: 0.07,
   },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  roleEmoji: { fontSize: 48 },
+  roleTitle: { fontSize: 22, fontWeight: '800' },
+  roleDesc: { fontSize: 14, textAlign: 'center', lineHeight: 21 },
+  lightText: { color: '#fff' },
+  lightMuted: { color: 'rgba(255,255,255,0.72)' },
+  darkText: { color: '#111827' },
+  darkMuted: { color: '#6B7280' },
+  subFooter: {
+    textAlign: 'center', fontSize: 12, color: '#9CA3AF',
+    paddingVertical: 12,
   },
 });
