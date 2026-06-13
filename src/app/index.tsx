@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router, Redirect } from 'expo-router';
@@ -6,9 +6,19 @@ import { useAuth } from '@/context/auth-context';
 import { TabBar } from '@/components/tab-bar';
 
 export default function HomeScreen() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
 
-  // Redirect to registration if not logged in
+  // Wait for session check before redirecting — prevents flicker when
+  // returning via magic link (Supabase session exists but user state not yet set)
+  if (isLoading) {
+    return (
+      <View style={styles.loadingScreen}>
+        <ActivityIndicator size="large" color="#6366F1" />
+        <Text style={styles.loadingText}>טוען...</Text>
+      </View>
+    );
+  }
+
   if (!user) {
     return <Redirect href="/auth/register" />;
   }
@@ -23,7 +33,7 @@ export default function HomeScreen() {
           <Text style={styles.headerBtnText}>👗</Text>
         </TouchableOpacity>
         <Text style={styles.logo}>ReWear</Text>
-        <TouchableOpacity onPress={() => {}} style={styles.headerBtn}>
+        <TouchableOpacity onPress={() => router.push('/profile')} style={styles.headerBtn}>
           <Text style={styles.headerBtnText}>👤</Text>
           <View style={styles.userDot} />
         </TouchableOpacity>
@@ -66,6 +76,8 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  loadingScreen: { flex: 1, backgroundColor: '#F8F7FF', alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { fontSize: 15, color: '#6B7280', fontWeight: '600' },
   container: { flex: 1, backgroundColor: '#F8F7FF' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

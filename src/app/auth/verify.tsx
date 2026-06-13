@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -16,7 +16,13 @@ import { useAuth } from '@/context/auth-context';
 const CODE_LENGTH = 6;
 
 export default function VerifyScreen() {
-  const { pendingEmail, verifyCode } = useAuth();
+  const { pendingEmail, verifyCode, user } = useAuth();
+
+  // When the user clicks the magic link in a different tab, Supabase fires
+  // onAuthStateChange → auth-context sets `user` → navigate past verify.
+  useEffect(() => {
+    if (user) router.replace('/');
+  }, [user]);
   const [digits, setDigits] = useState<string[]>(Array(CODE_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
   const inputs = useRef<(TextInput | null)[]>([]);

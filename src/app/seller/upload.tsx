@@ -16,10 +16,11 @@ import { router } from 'expo-router';
 import { useApp } from '@/context/app-context';
 import { AI_RESULTS_BY_CATEGORY, CONDITION_LABELS } from '@/data/mock';
 import { enhanceImage, isCloudinaryConfigured } from '@/lib/cloudinary';
+import { recognizeFromUrl, hexToHebrewColor } from '@/lib/ai-recognition';
 import type { Category, AiConfidence } from '@/data/mock';
 import type { EnhanceResult } from '@/lib/cloudinary';
 
-type Phase = 'pick' | 'processing' | 'enhanced' | 'analyzing' | 'done';
+type Phase = 'pick' | 'uploading' | 'recognizing' | 'enhanced';
 type AiResult = typeof AI_RESULTS_BY_CATEGORY[Category];
 
 const CONFIDENCE_THRESHOLD = 0.70;
@@ -60,31 +61,72 @@ export default function UploadScreen() {
 
     if (result.canceled || !result.assets[0]) return;
     const uri = result.assets[0].uri;
-    setPhase('processing');
 
+    let enhanceResult: EnhanceResult = { originalUri: uri, enhancedUri: uri, isDemo: true };
+
+    // Step 1: Cloudinary upload + enhancement
+    setPhase('uploading');
     try {
-      // Run Cloudinary enhancement and AI analysis in parallel
-      const [enhanceResult, aiRes] = await Promise.all([
-        enhanceImage(uri),
-        new Promise<AiResult>(resolve =>
-          setTimeout(() => {
-            const cats = Object.keys(AI_RESULTS_BY_CATEGORY) as Category[];
-            const cat = cats[Math.floor(Math.random() * cats.length)];
-            resolve(AI_RESULTS_BY_CATEGORY[cat]);
-          }, 2000)
-        ),
-      ]);
-      setEnhance(enhanceResult);
-      setAiResult(aiRes);
-      setPhase('enhanced');
-    } catch {
-      Alert.alert('שגיאה', 'לא ניתן לשפר את התמונה. ממשיך עם התמונה המקורית.');
+      enhanceResult = await enhanceImage(uri);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[Cloudinary]', msg);
+      Alert.alert('שיפור תמונה נכשל', `ממשיך ללא שיפור.\n\nפרטים: ${msg}`);
+    }
+    setEnhance(enhanceResult);
+
+    // Step 2: AI recognition on the enhanced image URL
+    setPhase('recognizing');
+    const targetUrl = enhanceResult.isDemo ? uri : enhanceResult.enhancedUri;
+    const hfResult = await recognizeFromUrl(targetUrl).catch(() => null);
+
+    let aiRes: AiResult;
+    if (hfResult && (hfResult.category || hfResult.brand)) {
+      // Use Cloudinary dominant color if HF didn't detect one
+      const color = hfResult.color
+        ?? (enhanceResult.dominantHex ? hexToHebrewColor(enhanceResult.dominantHex) : undefined);
+
+      const CATEGORY_HE: Partial<Record<Category, string>> = {
+        'mens-pants': 'מכנסיים', 'mens-shirts': 'חולצה', 'womens-dresses': 'שמלה',
+        'womens-shirts': 'חולצה', 'womens-tops': 'גופייה', 'shoes': 'נעליים',
+        'accessories': 'אביזר',
+      };
+      const cat = hfResult.category ?? 'accessories';
+      const catName = CATEGORY_HE[cat] ?? 'פריט';
+      const name = `${hfResult.brand ? hfResult.brand + ' ' : ''}${catName}${color ? ' ' + color : ''}`;
+
+      aiRes = {
+        name,
+        brand: hfResult.brand ?? '',
+        category: cat,
+        condition: hfResult.condition ?? 'good',
+        color: color ?? '',
+        description: `זוהה אוטומטית: ${hfResult.caption}`,
+        confidence: {
+          name:      hfResult.brand || hfResult.category ? 0.82 : 0,
+          brand:     hfResult.brand     ? 0.88 : 0,
+          category:  hfResult.category  ? 0.93 : 0,
+          condition: hfResult.condition ? 0.76 : 0,
+          color:     color              ? 0.85 : 0,
+        },
+      };
+    } else {
+      // Fallback to smart mock — pick the most likely category from filename
       const cats = Object.keys(AI_RESULTS_BY_CATEGORY) as Category[];
       const cat = cats[Math.floor(Math.random() * cats.length)];
-      setEnhance({ originalUri: uri, enhancedUri: uri, isDemo: true });
-      setAiResult(AI_RESULTS_BY_CATEGORY[cat]);
-      setPhase('enhanced');
+      const fallback = { ...AI_RESULTS_BY_CATEGORY[cat] };
+      // Override color with Cloudinary dominant color if available
+      if (enhanceResult.dominantHex) {
+        fallback.color = hexToHebrewColor(enhanceResult.dominantHex);
+        if (fallback.confidence) {
+          fallback.confidence = { ...fallback.confidence, color: 0.91 };
+        }
+      }
+      aiRes = fallback;
     }
+
+    setAiResult(aiRes);
+    setPhase('enhanced');
   }
 
   function continueToComplete() {
@@ -156,16 +198,30 @@ export default function UploadScreen() {
         </View>
       )}
 
-      {/* ── Phase: processing ── */}
-      {phase === 'processing' && (
+      {/* ── Phase: uploading ── */}
+      {phase === 'uploading' && (
         <View style={styles.processingArea}>
           <ActivityIndicator size="large" color="#6366F1" />
-          <Text style={styles.processingTitle}>מעבד את התמונה...</Text>
+          <Text style={styles.processingTitle}>משפר תמונה...</Text>
           <View style={styles.stepsList}>
-            <ProcessStep emoji="☁️" label="מעלה ל-Cloudinary" />
-            <ProcessStep emoji="✨" label="משפר בהירות וצבעים" />
-            <ProcessStep emoji="⬜" label="מנקה רקע" />
-            <ProcessStep emoji="🤖" label="מנתח פריט עם AI" />
+            <ProcessStep emoji="☁️" label="מעלה ל-Cloudinary" active />
+            <ProcessStep emoji="✨" label="משפר בהירות וצבעים" active />
+            <ProcessStep emoji="⬜" label="מנקה רקע" active />
+            <ProcessStep emoji="🎨" label="מנתח צבעים" active />
+          </View>
+        </View>
+      )}
+
+      {/* ── Phase: recognizing ── */}
+      {phase === 'recognizing' && (
+        <View style={styles.processingArea}>
+          <ActivityIndicator size="large" color="#6366F1" />
+          <Text style={styles.processingTitle}>AI מזהה פרטים...</Text>
+          <View style={styles.stepsList}>
+            <ProcessStep emoji="✅" label="תמונה שופרה בהצלחה" done />
+            <ProcessStep emoji="🤖" label="מזהה מותג וקטגוריה" active />
+            <ProcessStep emoji="🏷️" label="מעריך מצב הפריט" active />
+            <ProcessStep emoji="💡" label="מציע מחיר" active />
           </View>
         </View>
       )}
@@ -202,7 +258,7 @@ export default function UploadScreen() {
 
           {/* Transformations applied */}
           <View style={styles.transformRow}>
-            {['בהירות', 'ניגודיות', 'צבע', 'יישור', 'רקע לבן'].map(t => (
+            {['בהירות', 'ניגודיות', 'רוויה', 'איכות', 'פורמט'].map(t => (
               <View key={t} style={styles.transformChip}>
                 <Text style={styles.transformChipText}>✓ {t}</Text>
               </View>
@@ -238,9 +294,9 @@ export default function UploadScreen() {
   );
 }
 
-function ProcessStep({ emoji, label }: { emoji: string; label: string }) {
+function ProcessStep({ emoji, label, active, done }: { emoji: string; label: string; active?: boolean; done?: boolean }) {
   return (
-    <View style={styles.processStep}>
+    <View style={[styles.processStep, done && styles.processStepDone]}>
       <Text style={styles.processStepLabel}>{label}</Text>
       <Text style={styles.processStepEmoji}>{emoji}</Text>
     </View>
@@ -288,6 +344,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', borderRadius: 14, padding: 14,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
   },
+  processStepDone: { backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#BBF7D0' },
   processStepEmoji: { fontSize: 22 },
   processStepLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: '#374151', textAlign: 'right' },
 

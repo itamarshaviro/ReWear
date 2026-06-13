@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -36,11 +36,16 @@ function Field({ label, value, onChangeText, placeholder, keyboardType = 'defaul
 }
 
 export default function AddressScreen() {
-  const { completeProfile } = useAuth();
+  const { completeProfile, user } = useAuth();
   const [street, setStreet]   = useState('');
   const [city, setCity]       = useState('');
   const [zip, setZip]         = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Navigate once React commits the user state update
+  useEffect(() => {
+    if (user) router.replace('/');
+  }, [user]);
 
   async function handleFinish() {
     if (!street.trim() || !city.trim()) {
@@ -50,7 +55,7 @@ export default function AddressScreen() {
     setLoading(true);
     const fullAddress = [street.trim(), city.trim(), zip.trim()].filter(Boolean).join(', ');
     await completeProfile(fullAddress);
-    router.replace('/');
+    // navigation handled by the useEffect above
   }
 
   return (
@@ -94,7 +99,7 @@ export default function AddressScreen() {
               <Text style={styles.btnText}>{loading ? 'יוצר חשבון...' : 'סיים הרשמה 🎉'}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => { completeProfile(''); router.replace('/'); }}>
+            <TouchableOpacity onPress={() => completeProfile('')}>
               <Text style={styles.skipText}>דלג בינתיים</Text>
             </TouchableOpacity>
           </View>
