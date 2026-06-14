@@ -16,7 +16,7 @@ import { router } from 'expo-router';
 import { useApp } from '@/context/app-context';
 import { AI_RESULTS_BY_CATEGORY, CONDITION_LABELS } from '@/data/mock';
 import { enhanceImage, isCloudinaryConfigured } from '@/lib/cloudinary';
-import { recognizeFromUrl, hexToHebrewColor } from '@/lib/ai-recognition';
+import { recognizeFromUrl, hexToHebrewColor, suggestPrice } from '@/lib/ai-recognition';
 import type { Category, AiConfidence } from '@/data/mock';
 import type { EnhanceResult } from '@/lib/cloudinary';
 
@@ -82,10 +82,6 @@ export default function UploadScreen() {
 
     let aiRes: AiResult;
     if (hfResult && (hfResult.category || hfResult.brand)) {
-      // Use Cloudinary dominant color if HF didn't detect one
-      const color = hfResult.color
-        ?? (enhanceResult.dominantHex ? hexToHebrewColor(enhanceResult.dominantHex) : undefined);
-
       const CATEGORY_HE: Partial<Record<Category, string>> = {
         'mens-pants': 'מכנסיים', 'mens-shirts': 'חולצה', 'womens-dresses': 'שמלה',
         'womens-shirts': 'חולצה', 'womens-tops': 'גופייה', 'shoes': 'נעליים',
@@ -93,15 +89,18 @@ export default function UploadScreen() {
       };
       const cat = hfResult.category ?? 'accessories';
       const catName = CATEGORY_HE[cat] ?? 'פריט';
+      const color = hfResult.color ?? undefined;
       const name = `${hfResult.brand ? hfResult.brand + ' ' : ''}${catName}${color ? ' ' + color : ''}`;
+      const condition = hfResult.condition ?? 'good';
 
       aiRes = {
         name,
         brand: hfResult.brand ?? '',
         category: cat,
-        condition: hfResult.condition ?? 'good',
+        condition,
         color: color ?? '',
         description: `זוהה אוטומטית: ${hfResult.caption}`,
+        price: suggestPrice(hfResult.brand, condition),
         confidence: {
           name:      hfResult.brand || hfResult.category ? 0.82 : 0,
           brand:     hfResult.brand     ? 0.88 : 0,
@@ -111,17 +110,11 @@ export default function UploadScreen() {
         },
       };
     } else {
-      // Fallback to smart mock — pick the most likely category from filename
+      // Fallback mock + attach suggested price
       const cats = Object.keys(AI_RESULTS_BY_CATEGORY) as Category[];
       const cat = cats[Math.floor(Math.random() * cats.length)];
       const fallback = { ...AI_RESULTS_BY_CATEGORY[cat] };
-      // Override color with Cloudinary dominant color if available
-      if (enhanceResult.dominantHex) {
-        fallback.color = hexToHebrewColor(enhanceResult.dominantHex);
-        if (fallback.confidence) {
-          fallback.confidence = { ...fallback.confidence, color: 0.91 };
-        }
-      }
+      fallback.price = suggestPrice(fallback.brand || undefined, fallback.condition ?? 'good');
       aiRes = fallback;
     }
 
@@ -143,6 +136,7 @@ export default function UploadScreen() {
       condition: pick(aiResult.condition, 'condition'),
       color:     pick(aiResult.color,     'color'),
       description: aiResult.description,
+      price: aiResult.price,
       confidence: conf,
     });
     router.push('/seller/complete');
@@ -281,6 +275,15 @@ export default function UploadScreen() {
                   value={aiResult.condition ? CONDITION_LABELS[aiResult.condition] : undefined}
                   conf={conf?.condition}
                 />
+                {aiResult.price ? (
+                  <View style={styles.priceRow}>
+                    <View style={styles.priceBadge}>
+                      <Text style={styles.priceEmoji}>💰</Text>
+                    </View>
+                    <Text style={styles.priceValue}>₪{aiResult.price}</Text>
+                    <Text style={styles.priceLabel}>מחיר מוצע</Text>
+                  </View>
+                ) : null}
               </View>
             </View>
           )}
@@ -390,6 +393,17 @@ const styles = StyleSheet.create({
   confText: { fontSize: 11, fontWeight: '700' },
   confTextGreen: { color: '#059669' },
   confTextGray: { color: '#9CA3AF' },
+
+  // Suggested price row
+  priceRow: {
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 10,
+    backgroundColor: '#FFF7ED', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10,
+    borderWidth: 1, borderColor: '#FED7AA',
+  },
+  priceBadge: { width: 30, alignItems: 'center' },
+  priceEmoji: { fontSize: 18 },
+  priceLabel: { fontSize: 13, color: '#92400E', width: 72, textAlign: 'right' },
+  priceValue: { flex: 1, fontSize: 18, fontWeight: '900', color: '#D97706', textAlign: 'right' },
 
   continueBtn: {
     backgroundColor: '#6366F1', borderRadius: 16, paddingVertical: 18, alignItems: 'center',

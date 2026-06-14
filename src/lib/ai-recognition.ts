@@ -1,93 +1,187 @@
 import type { Category, Condition } from '@/data/mock';
 
 const HF_TOKEN = process.env.EXPO_PUBLIC_HUGGINGFACE_TOKEN ?? '';
-const HF_MODEL = 'Salesforce/blip-image-captioning-base';
+const CAPTION_MODEL = 'Salesforce/blip-image-captioning-base';
+const VQA_MODEL     = 'Salesforce/blip-vqa-base';
 
-// ── Color maps ────────────────────────────────────────────────────────────────
+// ── Color maps ─────────────────────────────────────────────────────────────────
 
 const COLOR_MAP: [string, string][] = [
   ['dark blue', 'כחול כהה'], ['navy blue', 'נייבי'], ['navy', 'נייבי'],
   ['light blue', 'כחול בהיר'], ['sky blue', 'כחול שמיים'],
-  ['dark green', 'ירוק כהה'], ['olive', 'זית'], ['khaki', 'חאקי'],
+  ['dark green', 'ירוק כהה'], ['olive green', 'זית'], ['olive', 'זית'],
   ['dark brown', 'חום כהה'], ['light brown', 'חום בהיר'],
-  ['hot pink', 'ורוד חם'], ['light pink', 'ורוד בהיר'],
+  ['hot pink', 'ורוד חם'], ['light pink', 'ורוד בהיר'], ['neon', 'ניאון'],
   ['black', 'שחור'], ['white', 'לבן'], ['grey', 'אפור'], ['gray', 'אפור'],
   ['blue', 'כחול'], ['red', 'אדום'], ['green', 'ירוק'], ['brown', 'חום'],
-  ['pink', 'ורוד'], ['yellow', 'צהוב'], ['orange', 'כתום'],
+  ['pink', 'ורוד'], ['yellow', 'צהוב'], ['orange', 'כתום'], ['khaki', 'חאקי'],
   ['purple', 'סגול'], ['beige', 'בז\''], ['cream', 'קרם'], ['tan', 'בז\''],
   ['burgundy', 'בורדו'], ['maroon', 'בורדו'], ['turquoise', 'טורקיז'],
-  ['coral', 'קורל'], ['gold', 'זהב'], ['silver', 'כסף'],
-];
-
-// Cloudinary predominant hex → named color
-const HEX_COLOR_RANGES: [number, number, number, string][] = [
-  // [r, g, b, name] — simple nearest-neighbor table
-  [0,   0,   0,   'שחור'],
-  [255, 255, 255, 'לבן'],
-  [128, 128, 128, 'אפור'],
-  [0,   0,   128, 'כחול כהה'],
-  [0,   0,   255, 'כחול'],
-  [135, 206, 250, 'כחול בהיר'],
-  [255, 0,   0,   'אדום'],
-  [0,   128, 0,   'ירוק'],
-  [128, 128, 0,   'זית'],
-  [101, 67,  33,  'חום'],
-  [245, 245, 220, 'בז\''],
-  [255, 192, 203, 'ורוד'],
-  [128, 0,   128, 'סגול'],
-  [255, 165, 0,   'כתום'],
-  [255, 255, 0,   'צהוב'],
-  [192, 192, 192, 'כסף'],
-  [255, 215, 0,   'זהב'],
-  [128, 0,   0,   'בורדו'],
-  [0,   128, 128, 'טורקיז'],
+  ['coral', 'קורל'], ['gold', 'זהב'], ['silver', 'כסף'], ['teal', 'טורקיז'],
+  ['mint', 'מנטה'], ['lavender', 'לבנדר'], ['multicolor', 'צבעוני'],
 ];
 
 export function hexToHebrewColor(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
-  let best = 'אפור';
-  let bestDist = Infinity;
-  for (const [cr, cg, cb, name] of HEX_COLOR_RANGES) {
-    const d = (r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2;
-    if (d < bestDist) { bestDist = d; best = name; }
+  const table: [number, number, number, string][] = [
+    [0, 0, 0, 'שחור'], [255, 255, 255, 'לבן'], [128, 128, 128, 'אפור'],
+    [0, 0, 128, 'כחול כהה'], [0, 0, 255, 'כחול'], [135, 206, 250, 'כחול בהיר'],
+    [255, 0, 0, 'אדום'], [0, 128, 0, 'ירוק'], [128, 128, 0, 'זית'],
+    [101, 67, 33, 'חום'], [245, 245, 220, 'בז\''], [255, 192, 203, 'ורוד'],
+    [128, 0, 128, 'סגול'], [255, 165, 0, 'כתום'], [255, 255, 0, 'צהוב'],
+    [192, 192, 192, 'כסף'], [128, 0, 0, 'בורדו'], [0, 128, 128, 'טורקיז'],
+  ];
+  let best = 'אפור', bestDist = Infinity;
+  for (const entry of table) {
+    const cr = entry[0] as number;
+    const cg = entry[1] as number;
+    const cb = entry[2] as number;
+    const d = (r - cr) * (r - cr) + (g - cg) * (g - cg) + (b - cb) * (b - cb);
+    if (d < bestDist) { bestDist = d; best = entry[3] as string; }
   }
   return best;
 }
 
-// ── Category map ──────────────────────────────────────────────────────────────
+// ── Brand list ─────────────────────────────────────────────────────────────────
 
-const CATEGORY_KEYWORDS: [string[], Category][] = [
-  [['jeans', 'pants', 'trousers', 'chinos', 'shorts', 'jogger', 'denim'], 'mens-pants'],
-  [['shirt', 't-shirt', 'tshirt', 'polo', 'jacket', 'hoodie', 'sweatshirt', 'sweater', 'coat', 'blazer'], 'mens-shirts'],
-  [['dress', 'gown', 'skirt'], 'womens-dresses'],
-  [['blouse', 'top', 'tank top', 'camisole', 'crop'], 'womens-tops'],
-  [['shoes', 'sneakers', 'boots', 'heels', 'sandals', 'loafers', 'trainers', 'footwear'], 'shoes'],
-  [['bag', 'purse', 'handbag', 'backpack', 'necklace', 'bracelet', 'watch', 'belt', 'scarf', 'hat'], 'accessories'],
+// Each entry: [pattern to match (lowercase), canonical display name]
+const BRANDS: [string, string][] = [
+  // Surf / Outdoor
+  ['rip curl', 'Rip Curl'], ['ripcurl', 'Rip Curl'],
+  ['billabong', 'Billabong'], ['quiksilver', 'Quiksilver'],
+  ["o'neill", "O'Neill"], ['oneill', "O'Neill"], ['volcom', 'Volcom'],
+  ['hurley', 'Hurley'], ['patagonia', 'Patagonia'], ['north face', 'The North Face'],
+  ['columbia', 'Columbia'], ['timberland', 'Timberland'],
+  // Athletic
+  ['nike', 'Nike'], ['adidas', 'Adidas'], ['puma', 'Puma'],
+  ['new balance', 'New Balance'], ['under armour', 'Under Armour'],
+  ['reebok', 'Reebok'], ['asics', 'ASICS'], ['skechers', 'Skechers'],
+  ['fila', 'Fila'], ['champion', 'Champion'], ['kappa', 'Kappa'],
+  // Fashion
+  ['ralph lauren', 'Ralph Lauren'], ['polo ralph', 'Ralph Lauren'],
+  ['calvin klein', 'Calvin Klein'], ['tommy hilfiger', 'Tommy Hilfiger'],
+  ['tommy', 'Tommy Hilfiger'], ['guess', 'Guess'],
+  ['lacoste', 'Lacoste'], ['hugo boss', 'Hugo Boss'], ['boss', 'Hugo Boss'],
+  ['versace', 'Versace'], ['armani', 'Armani'], ['burberry', 'Burberry'],
+  ['gucci', 'Gucci'], ['prada', 'Prada'], ['louis vuitton', 'Louis Vuitton'],
+  ['balenciaga', 'Balenciaga'], ['off white', 'Off-White'],
+  // Denim
+  ["levi's", "Levi's"], ['levis', "Levi's"], ['wrangler', 'Wrangler'],
+  ['lee', 'Lee'], ['diesel', 'Diesel'],
+  // Shoes
+  ['vans', 'Vans'], ['converse', 'Converse'], ['dr martens', 'Dr. Martens'],
+  ['birkenstock', 'Birkenstock'], ['crocs', 'Crocs'],
+  // Fast fashion
+  ['zara', 'Zara'], ['mango', 'Mango'], ['h&m', 'H&M'],
+  ['pull&bear', 'Pull&Bear'], ['pull and bear', 'Pull&Bear'],
+  ['bershka', 'Bershka'], ['asos', 'ASOS'], ['gap', 'GAP'],
+  ['uniqlo', 'Uniqlo'], ['shein', 'SHEIN'], ['primark', 'Primark'],
+  ['stradivarius', 'Stradivarius'], ['massimo dutti', 'Massimo Dutti'],
 ];
 
-const BRANDS: [string, string][] = [
-  ['nike', 'Nike'], ['adidas', 'Adidas'], ['zara', 'Zara'], ['h&m', 'H&M'],
-  ['mango', 'Mango'], ['gucci', 'Gucci'], ['prada', 'Prada'],
-  ["levi's", "Levi's"], ['levis', "Levi's"], ['wrangler', 'Wrangler'],
-  ['ralph lauren', 'Ralph Lauren'], ['tommy', 'Tommy Hilfiger'],
-  ['calvin klein', 'Calvin Klein'], ['pull&bear', 'Pull&Bear'],
-  ['pull and bear', 'Pull&Bear'], ['asos', 'ASOS'], ['gap', 'GAP'],
-  ['uniqlo', 'Uniqlo'], ['shein', 'SHEIN'], ['puma', 'Puma'],
-  ['new balance', 'New Balance'], ['vans', 'Vans'], ['converse', 'Converse'],
-  ['dr martens', 'Dr. Martens'], ['guess', 'Guess'],
+// ── Price suggestion ───────────────────────────────────────────────────────────
+
+const BRAND_BASE_PRICE: Record<string, number> = {
+  // Luxury
+  'Gucci': 900, 'Prada': 850, 'Louis Vuitton': 1200, 'Balenciaga': 1000,
+  'Versace': 750, 'Armani': 600, 'Burberry': 700, 'Off-White': 650,
+  // Premium fashion
+  'Ralph Lauren': 280, 'Calvin Klein': 220, 'Tommy Hilfiger': 210,
+  'Hugo Boss': 260, 'Lacoste': 240, 'Guess': 180, 'Diesel': 250,
+  // Athletic premium
+  'Nike': 180, 'Adidas': 170, 'Puma': 150, 'New Balance': 200,
+  'Under Armour': 160, 'Reebok': 140, 'ASICS': 180, 'Fila': 130, 'Champion': 150,
+  // Surf/outdoor
+  'Rip Curl': 220, 'Billabong': 200, 'Quiksilver': 190, "O'Neill": 180,
+  'Volcom': 170, 'Hurley': 160, 'Patagonia': 350, 'The North Face': 320,
+  'Columbia': 250, 'Timberland': 270,
+  // Shoes
+  'Vans': 150, 'Converse': 140, 'Dr. Martens': 300, 'Birkenstock': 280,
+  // Denim
+  "Levi's": 180, 'Wrangler': 150, 'Lee': 140, 'Skechers': 160,
+  // Mid fashion
+  'Zara': 100, 'Mango': 90, 'H&M': 60, 'GAP': 110, 'Uniqlo': 120,
+  'Massimo Dutti': 180, 'Stradivarius': 70, 'Bershka': 60,
+  'Pull&Bear': 65, 'ASOS': 80,
+  // Budget
+  'SHEIN': 35, 'Primark': 40,
+};
+
+const CONDITION_MULT: Record<Condition, number> = {
+  'new-with-tag': 0.85,
+  'new-without-tag': 0.70,
+  'perfect': 0.55,
+  'good': 0.40,
+  'fair': 0.25,
+  'for-parts': 0.10,
+};
+
+export function suggestPrice(brand: string | undefined, condition: Condition = 'good'): number {
+  const base: number = brand ? (BRAND_BASE_PRICE[brand] ?? 90) : 90;
+  const price = Math.round(base * CONDITION_MULT[condition]);
+  return Math.max(10, Math.round(price / 5) * 5); // round to nearest 5, min ₪10
+}
+
+// ── Category keywords ──────────────────────────────────────────────────────────
+
+const CATEGORY_KEYWORDS: [string[], Category][] = [
+  [['jeans', 'pants', 'trousers', 'chinos', 'shorts', 'jogger', 'denim', 'sweatpants', 'leggings'], 'mens-pants'],
+  [['shirt', 't-shirt', 'tshirt', 'polo', 'jacket', 'hoodie', 'sweatshirt', 'sweater', 'coat', 'blazer', 'cardigan', 'jersey', 'vest'], 'mens-shirts'],
+  [['dress', 'gown', 'skirt', 'romper', 'jumpsuit'], 'womens-dresses'],
+  [['blouse', 'tank top', 'camisole', 'crop top', 'crop'], 'womens-tops'],
+  [['shoes', 'sneakers', 'boots', 'heels', 'sandals', 'loafers', 'trainers', 'footwear', 'slippers', 'flip flop'], 'shoes'],
+  [['bag', 'purse', 'handbag', 'backpack', 'necklace', 'bracelet', 'watch', 'belt', 'scarf', 'hat', 'cap', 'socks', 'gloves', 'sunglasses'], 'accessories'],
 ];
 
 const CONDITION_KEYWORDS: [string[], Condition][] = [
-  [['new with tag', 'brand new', 'with tags', 'bnwt'], 'new-with-tag'],
+  [['new with tag', 'brand new', 'with tags', 'bnwt', 'still tagged'], 'new-with-tag'],
   [['new without tag', 'unworn', 'never worn', 'nwot'], 'new-without-tag'],
-  [['excellent', 'like new', 'mint', 'perfect'], 'perfect'],
-  [['good condition', 'gently used', 'light wear'], 'good'],
-  [['fair', 'used', 'worn', 'some wear'], 'fair'],
+  [['excellent', 'like new', 'mint', 'perfect condition'], 'perfect'],
+  [['good condition', 'gently used', 'light wear', 'lightly used'], 'good'],
+  [['fair', 'some wear', 'visible wear', 'worn', 'used'], 'fair'],
 ];
 
-// ── Parser ────────────────────────────────────────────────────────────────────
+// ── Text parser ────────────────────────────────────────────────────────────────
+
+function parseBrand(text: string): string | undefined {
+  const lower = text.toLowerCase();
+  // Sort longer names first to avoid partial matches ('tommy' before 'tommy hilfiger')
+  const sorted = [...BRANDS].sort((a, b) => b[0].length - a[0].length);
+  for (const [pattern, canonical] of sorted) {
+    if (lower.includes(pattern)) return canonical;
+  }
+  return undefined;
+}
+
+function parseColor(text: string): string | undefined {
+  const lower = text.toLowerCase();
+  // Longer entries first (e.g. 'dark blue' before 'blue')
+  const sorted = [...COLOR_MAP].sort((a, b) => b[0].length - a[0].length);
+  for (const [en, he] of sorted) {
+    if (lower.includes(en)) return he;
+  }
+  return undefined;
+}
+
+function parseCategory(text: string): Category | undefined {
+  const lower = text.toLowerCase();
+  for (const [keywords, cat] of CATEGORY_KEYWORDS) {
+    if (keywords.some(k => lower.includes(k))) return cat;
+  }
+  return undefined;
+}
+
+function parseCondition(text: string): Condition | undefined {
+  const lower = text.toLowerCase();
+  for (const [keywords, cond] of CONDITION_KEYWORDS) {
+    if (keywords.some(k => lower.includes(k))) return cond;
+  }
+  return undefined;
+}
+
+// ── Result type ────────────────────────────────────────────────────────────────
 
 export type RecognitionResult = {
   caption: string;
@@ -96,6 +190,7 @@ export type RecognitionResult = {
   color?: string;
   category?: Category;
   condition?: Condition;
+  price?: number;
   confidence: {
     name: number;
     brand: number;
@@ -105,36 +200,9 @@ export type RecognitionResult = {
   };
 };
 
-export function parseCaption(caption: string): RecognitionResult {
-  const lower = caption.toLowerCase();
-
-  // Color
-  let color: string | undefined;
-  for (const [en, he] of COLOR_MAP) {
-    if (lower.includes(en)) { color = he; break; }
-  }
-
-  // Category
-  let category: Category | undefined;
-  for (const [keywords, cat] of CATEGORY_KEYWORDS) {
-    if (keywords.some(k => lower.includes(k))) { category = cat; break; }
-  }
-
-  // Brand
-  let brand: string | undefined;
-  for (const [en, he] of BRANDS) {
-    if (lower.includes(en)) { brand = he; break; }
-  }
-
-  // Condition
-  let condition: Condition | undefined;
-  for (const [keywords, cond] of CONDITION_KEYWORDS) {
-    if (keywords.some(k => lower.includes(k))) { condition = cond; break; }
-  }
-
-  // Build Hebrew name
+function buildResult(caption: string, brand?: string, color?: string, category?: Category, condition?: Condition): RecognitionResult {
   const CATEGORY_HE: Partial<Record<Category, string>> = {
-    'mens-pants': "מכנסיים", 'mens-shirts': 'חולצה', 'womens-dresses': 'שמלה',
+    'mens-pants': 'מכנסיים', 'mens-shirts': 'חולצה', 'womens-dresses': 'שמלה',
     'womens-shirts': 'חולצה', 'womens-tops': 'גופייה', 'shoes': 'נעליים',
     'accessories': 'אביזר',
   };
@@ -142,6 +210,7 @@ export function parseCaption(caption: string): RecognitionResult {
   const name = catName
     ? `${brand ? brand + ' ' : ''}${catName}${color ? ' ' + color : ''}`
     : undefined;
+  const price = suggestPrice(brand, condition ?? 'good');
 
   return {
     caption,
@@ -150,40 +219,89 @@ export function parseCaption(caption: string): RecognitionResult {
     color,
     category,
     condition,
+    price,
     confidence: {
-      name:      name      ? 0.78 : 0,
-      brand:     brand     ? 0.85 : 0,
-      category:  category  ? 0.92 : 0,
-      condition: condition ? 0.75 : 0,
-      color:     color     ? 0.88 : 0,
+      name:      name      ? 0.80 : 0,
+      brand:     brand     ? 0.88 : 0,
+      category:  category  ? 0.93 : 0,
+      condition: condition ? 0.76 : 0,
+      color:     color     ? 0.85 : 0,
     },
   };
 }
 
-// ── Hugging Face call ─────────────────────────────────────────────────────────
+// ── Blob → base64 ──────────────────────────────────────────────────────────────
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.split(',')[1] ?? '');
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// ── Hugging Face API calls ─────────────────────────────────────────────────────
+
+function hfHeaders(): Record<string, string> {
+  return HF_TOKEN ? { Authorization: `Bearer ${HF_TOKEN}` } : {};
+}
+
+async function callCaption(blob: Blob): Promise<string> {
+  const res = await fetch(
+    `https://api-inference.huggingface.co/models/${CAPTION_MODEL}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/octet-stream', ...hfHeaders() }, body: blob }
+  );
+  if (!res.ok) return '';
+  const data = await res.json() as { generated_text?: string }[];
+  return data[0]?.generated_text ?? '';
+}
+
+async function callVQA(base64: string, question: string): Promise<string> {
+  const res = await fetch(
+    `https://api-inference.huggingface.co/models/${VQA_MODEL}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...hfHeaders() },
+      body: JSON.stringify({ inputs: { question, image: base64 } }),
+    }
+  );
+  if (!res.ok) return '';
+  const data = await res.json() as { answer?: string }[];
+  return data[0]?.answer ?? '';
+}
+
+// ── Main export ────────────────────────────────────────────────────────────────
 
 export async function recognizeFromUrl(imageUrl: string): Promise<RecognitionResult | null> {
   try {
-    // Fetch the image bytes from the Cloudinary URL
     const imgRes = await fetch(imageUrl);
     if (!imgRes.ok) return null;
     const blob = await imgRes.blob();
+    const base64 = await blobToBase64(blob);
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/octet-stream',
-    };
-    if (HF_TOKEN) headers['Authorization'] = `Bearer ${HF_TOKEN}`;
+    // Run general caption + brand-specific VQA in parallel
+    const [caption, brandAnswer, typeAnswer] = await Promise.all([
+      callCaption(blob),
+      callVQA(base64, 'What brand or logo is shown on the clothing?'),
+      callVQA(base64, 'What type of clothing item is this?'),
+    ]);
 
-    const res = await fetch(
-      `https://api-inference.huggingface.co/models/${HF_MODEL}`,
-      { method: 'POST', headers, body: blob }
-    );
+    if (!caption && !brandAnswer && !typeAnswer) return null;
 
-    if (!res.ok) return null;
-    const data = await res.json() as { generated_text?: string }[];
-    const caption = data[0]?.generated_text ?? '';
-    if (!caption) return null;
-    return parseCaption(caption);
+    const allText = [caption, brandAnswer, typeAnswer].join(' ');
+
+    // Brand: VQA answer takes priority over caption
+    const brand = parseBrand(brandAnswer) ?? parseBrand(caption);
+    const color = parseColor(caption);
+    // Category: try VQA type answer first, then full caption
+    const category = parseCategory(typeAnswer) ?? parseCategory(allText);
+    const condition = parseCondition(caption);
+
+    return buildResult(caption || allText, brand, color, category, condition);
   } catch {
     return null;
   }
