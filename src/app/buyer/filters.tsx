@@ -5,7 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { CATEGORY_INFO, ALL_SIZES } from '@/data/mock';
 import type { Category } from '@/data/mock';
 
-const DISTANCES = [5, 10, 20, 50];
+const DISTANCES = [0.5, 1, 2, 5, 10, 20];
 const MAX_PRICES = [50, 100, 200, 300, 500];
 
 function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
@@ -31,7 +31,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function FiltersScreen() {
   const { category } = useLocalSearchParams<{ category: Category }>();
-  const [distance, setDistance] = useState(10);
+  const [distance, setDistance] = useState(5);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [maxPrice, setMaxPrice] = useState(200);
 
@@ -69,7 +69,12 @@ export default function FiltersScreen() {
         <Section title="מרחק מהבית">
           <View style={styles.chips}>
             {DISTANCES.map(d => (
-              <Chip key={d} label={`${d} ק"מ`} selected={distance === d} onPress={() => setDistance(d)} />
+              <Chip
+                key={d}
+                label={d < 1 ? `${d * 1000 | 0} מ'` : `${d} ק"מ`}
+                selected={distance === d}
+                onPress={() => setDistance(d)}
+              />
             ))}
           </View>
         </Section>

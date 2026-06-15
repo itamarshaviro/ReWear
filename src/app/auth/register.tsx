@@ -94,10 +94,10 @@ export default function RegisterScreen() {
           <View style={styles.form}>
             <View style={styles.nameRow}>
               <View style={{ flex: 1 }}>
-                <Field label="שם משפחה" value={lastName} onChangeText={setLastName} placeholder="כהן" autoCapitalize="words" />
+                <Field label="שם פרטי" value={firstName} onChangeText={setFirstName} placeholder="ישראל" autoCapitalize="words" />
               </View>
               <View style={{ flex: 1 }}>
-                <Field label="שם פרטי" value={firstName} onChangeText={setFirstName} placeholder="ישראל" autoCapitalize="words" />
+                <Field label="שם משפחה" value={lastName} onChangeText={setLastName} placeholder="כהן" autoCapitalize="words" />
               </View>
             </View>
 
