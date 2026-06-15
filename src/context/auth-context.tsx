@@ -3,6 +3,13 @@ import { router } from 'expo-router';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 
+export type BuyerPreferences = {
+  brands: string[];
+  topSize: string;
+  bottomSize: string;
+  shoeSize: string;
+};
+
 export type AuthUser = {
   id: string;
   firstName: string;
@@ -12,6 +19,7 @@ export type AuthUser = {
   address: string;
   idImageUri: string | null;
   isVerified: boolean;
+  preferences?: BuyerPreferences;
 };
 
 type RegisterPayload = {
@@ -29,6 +37,7 @@ type AuthContextType = {
   verifyCode: (code: string) => Promise<boolean>;
   setIdImage: (uri: string) => void;
   completeProfile: (address: string) => void;
+  updatePreferences: (prefs: BuyerPreferences) => void;
   logout: () => void;
 };
 
@@ -171,6 +180,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPending(null);
   }
 
+  function updatePreferences(prefs: BuyerPreferences) {
+    setUser(prev => prev ? { ...prev, preferences: prefs } : prev);
+  }
+
   function logout() {
     setUser(null);
     setPending(null);
@@ -186,6 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       verifyCode,
       setIdImage,
       completeProfile,
+      updatePreferences,
       logout,
     }}>
       {children}

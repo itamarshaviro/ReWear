@@ -1,12 +1,15 @@
+import { useMemo } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router, Redirect } from 'expo-router';
 import { useAuth } from '@/context/auth-context';
+import { useApp } from '@/context/app-context';
 import { TabBar } from '@/components/tab-bar';
 
 export default function HomeScreen() {
   const { user, isLoading } = useAuth();
+  const { allListings } = useApp();
 
   // Wait for session check before redirecting — prevents flicker when
   // returning via magic link (Supabase session exists but user state not yet set)
@@ -23,6 +26,14 @@ export default function HomeScreen() {
     return <Redirect href="/auth/register" />;
   }
 
+  // Count items matching buyer's favorite brands
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const matchCount = useMemo(() => {
+    const brands = user.preferences?.brands ?? [];
+    if (!brands.length) return 0;
+    return allListings.filter(item => brands.includes(item.brand)).length;
+  }, [allListings, user.preferences?.brands]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar style="dark" />
@@ -35,7 +46,13 @@ export default function HomeScreen() {
         <Text style={styles.logo}>ReWear</Text>
         <TouchableOpacity onPress={() => router.push('/profile')} style={styles.headerBtn}>
           <Text style={styles.headerBtnText}>👤</Text>
-          <View style={styles.userDot} />
+          {matchCount > 0 ? (
+            <View style={styles.matchDot}>
+              <Text style={styles.matchDotText}>{matchCount}</Text>
+            </View>
+          ) : (
+            <View style={styles.userDot} />
+          )}
         </TouchableOpacity>
       </View>
 
@@ -90,6 +107,12 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 4, right: 4,
     width: 8, height: 8, borderRadius: 4, backgroundColor: '#22C55E',
   },
+  matchDot: {
+    position: 'absolute', top: 0, right: 0,
+    backgroundColor: '#6366F1', borderRadius: 10,
+    minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
+  },
+  matchDotText: { fontSize: 10, fontWeight: '800', color: '#fff' },
   greeting: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 4, gap: 4 },
   greetingText: { fontSize: 22, fontWeight: '800', color: '#111827', textAlign: 'right' },
   greetingSub: { fontSize: 14, color: '#6B7280', textAlign: 'right' },
