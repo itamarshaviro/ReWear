@@ -151,7 +151,7 @@ export default function DashboardScreen() {
       </ScrollView>
 
       {/* FAB */}
-      <TouchableOpacity style={styles.fab} onPress={() => router.push('/seller/upload')} activeOpacity={0.85}>
+      <TouchableOpacity style={styles.fab} onPress={() => router.push('/seller/classify')} activeOpacity={0.85}>
         <Text style={styles.fabIcon}>+</Text>
         <Text style={styles.fabText}>הוסף פריט</Text>
       </TouchableOpacity>

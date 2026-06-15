@@ -274,20 +274,44 @@ async function callVQA(base64: string, question: string): Promise<string> {
   return data[0]?.answer ?? '';
 }
 
+// English labels for category hints in VQA prompts
+const CATEGORY_EN: Partial<Record<Category, string>> = {
+  'mens-shirts':    "men's shirt or jacket",
+  'mens-pants':     "men's pants or jeans",
+  'womens-shirts':  "women's shirt or jacket",
+  'womens-dresses': 'dress or skirt',
+  'womens-tops':    'top or camisole',
+  'shoes':          'shoes or sneakers',
+  'accessories':    'accessory',
+};
+
+export type RecognitionHint = {
+  category?: Category;
+  gender?: string;
+};
+
 // ── Main export ────────────────────────────────────────────────────────────────
 
-export async function recognizeFromUrl(imageUrl: string): Promise<RecognitionResult | null> {
+export async function recognizeFromUrl(
+  imageUrl: string,
+  hint?: RecognitionHint,
+): Promise<RecognitionResult | null> {
   try {
     const imgRes = await fetch(imageUrl);
     if (!imgRes.ok) return null;
     const blob = await imgRes.blob();
     const base64 = await blobToBase64(blob);
 
-    // Run general caption + brand-specific VQA in parallel
+    // Build brand VQA prompt using hint for specificity
+    const itemDesc = hint?.category ? CATEGORY_EN[hint.category] ?? 'clothing item' : 'clothing item';
+    const brandQuestion = `What brand name or logo is visible on this ${itemDesc}?`;
+
+    // Run caption + brand VQA in parallel.
+    // Skip type VQA if category is already known from classify screen.
     const [caption, brandAnswer, typeAnswer] = await Promise.all([
       callCaption(blob),
-      callVQA(base64, 'What brand or logo is shown on the clothing?'),
-      callVQA(base64, 'What type of clothing item is this?'),
+      callVQA(base64, brandQuestion),
+      hint?.category ? Promise.resolve('') : callVQA(base64, 'What type of clothing item is this?'),
     ]);
 
     if (!caption && !brandAnswer && !typeAnswer) return null;
@@ -297,8 +321,8 @@ export async function recognizeFromUrl(imageUrl: string): Promise<RecognitionRes
     // Brand: VQA answer takes priority over caption
     const brand = parseBrand(brandAnswer) ?? parseBrand(caption);
     const color = parseColor(caption);
-    // Category: try VQA type answer first, then full caption
-    const category = parseCategory(typeAnswer) ?? parseCategory(allText);
+    // Use pre-selected category from classify screen if available
+    const category = hint?.category ?? parseCategory(typeAnswer) ?? parseCategory(allText);
     const condition = parseCondition(caption);
 
     return buildResult(caption || allText, brand, color, category, condition);

@@ -17,6 +17,7 @@ import { useApp } from '@/context/app-context';
 import { AI_RESULTS_BY_CATEGORY, CONDITION_LABELS } from '@/data/mock';
 import { enhanceImage, isCloudinaryConfigured } from '@/lib/cloudinary';
 import { recognizeFromUrl, hexToHebrewColor, suggestPrice } from '@/lib/ai-recognition';
+import { useLocalSearchParams } from 'expo-router';
 import type { Category, AiConfidence } from '@/data/mock';
 import type { EnhanceResult } from '@/lib/cloudinary';
 
@@ -42,6 +43,9 @@ function ConfidenceRow({ label, value, conf }: { label: string; value: string | 
 
 export default function UploadScreen() {
   const { setDraft } = useApp();
+  const { preCategory, preGender, preLabel } = useLocalSearchParams<{
+    preCategory?: string; preGender?: string; preLabel?: string;
+  }>();
   const [phase, setPhase] = useState<Phase>('pick');
   const [enhance, setEnhance] = useState<EnhanceResult | null>(null);
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
@@ -78,7 +82,10 @@ export default function UploadScreen() {
     // Step 2: AI recognition on the enhanced image URL
     setPhase('recognizing');
     const targetUrl = enhanceResult.isDemo ? uri : enhanceResult.enhancedUri;
-    const hfResult = await recognizeFromUrl(targetUrl).catch(() => null);
+    const hfResult = await recognizeFromUrl(targetUrl, {
+      category: preCategory as Category | undefined,
+      gender: preGender,
+    }).catch(() => null);
 
     let aiRes: AiResult;
     if (hfResult && (hfResult.category || hfResult.brand)) {
@@ -162,6 +169,14 @@ export default function UploadScreen() {
           </View>
           <Text style={styles.pickTitle}>הוסף תמונה של הפריט</Text>
           <Text style={styles.pickSub}>ה-AI ישפר את התמונה ויזהה פרטים אוטומטית</Text>
+
+          {preLabel && (
+            <View style={styles.preSelBadge}>
+              <Text style={styles.preSelText}>
+                {preGender === 'men' ? '👨 גברים' : '👩 נשים'} · {preLabel}
+              </Text>
+            </View>
+          )}
 
           {isCloudinaryConfigured() ? (
             <View style={styles.cloudinaryBadge}>
@@ -322,6 +337,11 @@ const styles = StyleSheet.create({
   heroEmoji: { fontSize: 56 },
   pickTitle: { fontSize: 22, fontWeight: '800', color: '#111827' },
   pickSub: { fontSize: 15, color: '#6B7280', textAlign: 'center' },
+  preSelBadge: {
+    backgroundColor: '#F0FDF4', borderRadius: 100, paddingHorizontal: 16, paddingVertical: 8,
+    borderWidth: 1.5, borderColor: '#86EFAC',
+  },
+  preSelText: { fontSize: 13, fontWeight: '700', color: '#16A34A' },
   cloudinaryBadge: {
     backgroundColor: '#EEF2FF', borderRadius: 100, paddingHorizontal: 16, paddingVertical: 8,
   },

@@ -59,7 +59,7 @@ export default function HomeScreen() {
 
         <TouchableOpacity
           style={[styles.roleCard, styles.sellerCard]}
-          onPress={() => router.push('/seller/upload')}
+          onPress={() => router.push('/seller/classify')}
           activeOpacity={0.85}
         >
           <Text style={styles.roleEmoji}>👗</Text>
