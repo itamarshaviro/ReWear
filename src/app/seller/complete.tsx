@@ -38,7 +38,7 @@ export default function CompleteScreen() {
 
   useEffect(() => {
     if (!draft) {
-      router.replace('/seller/upload');
+      router.replace('/');
     }
   }, [draft]);
 

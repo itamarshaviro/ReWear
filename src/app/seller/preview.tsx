@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -16,11 +16,39 @@ import { Stars } from '@/components/stars';
 export default function PreviewScreen() {
   const { draft, setDraft, addListing } = useApp();
 
+  const [published, setPublished] = useState(false);
+
   useEffect(() => {
-    if (!draft) {
-      router.replace('/seller/upload');
+    if (!draft && !published) {
+      router.replace('/');
     }
-  }, [draft]);
+  }, [draft, published]);
+
+  if (published) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.successScreen}>
+          <Text style={styles.successEmoji}>😊</Text>
+          <Text style={styles.successTitle}>הפריט עלה בהצלחה!</Text>
+          <Text style={styles.successSub}>הפריט שלך פורסם וכבר זמין לקונים 🎉</Text>
+          <TouchableOpacity
+            style={styles.successPrimaryBtn}
+            onPress={() => router.replace('/seller/dashboard')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.successPrimaryBtnText}>ראה את הפריטים שלי 👗</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.successSecondaryBtn}
+            onPress={() => router.replace('/')}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.successSecondaryBtnText}>חזור לדף הבית</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!draft) return null;
 
@@ -43,7 +71,7 @@ export default function PreviewScreen() {
       imageUrl: draft.imageUri,
     });
     setDraft(null);
-    router.replace('/seller/dashboard');
+    setPublished(true);
   }
 
   return (
@@ -191,4 +219,24 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3, shadowRadius: 16, elevation: 8,
   },
   publishBtnText: { fontSize: 17, fontWeight: '800', color: '#fff' },
+
+  // Success screen
+  successScreen: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    padding: 36, gap: 16,
+  },
+  successEmoji: { fontSize: 90, marginBottom: 8 },
+  successTitle: { fontSize: 28, fontWeight: '900', color: '#111827', textAlign: 'center' },
+  successSub: { fontSize: 16, color: '#6B7280', textAlign: 'center', lineHeight: 24, marginBottom: 8 },
+  successPrimaryBtn: {
+    width: '100%', backgroundColor: '#6366F1', borderRadius: 18,
+    paddingVertical: 18, alignItems: 'center',
+    shadowColor: '#6366F1', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3, shadowRadius: 16, elevation: 8,
+  },
+  successPrimaryBtnText: { fontSize: 17, fontWeight: '800', color: '#fff' },
+  successSecondaryBtn: {
+    paddingVertical: 12, paddingHorizontal: 24,
+  },
+  successSecondaryBtnText: { fontSize: 15, fontWeight: '600', color: '#9CA3AF' },
 });
