@@ -9,6 +9,9 @@ module.exports = {
     userInterfaceStyle: 'automatic',
     ios: {
       icon: './assets/expo.icon',
+      infoPlist: {
+        NSLocationWhenInUseUsageDescription: 'ReWear משתמשת במיקומך כדי להציג פריטים קרובים אליך.',
+      },
       config: {
         googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? '',
       },
@@ -21,6 +24,7 @@ module.exports = {
         monochromeImage: './assets/images/android-icon-monochrome.png',
       },
       predictiveBackGestureEnabled: false,
+      permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'],
       config: {
         googleMaps: {
           apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? '',
