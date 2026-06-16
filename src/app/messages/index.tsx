@@ -1,0 +1,212 @@
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
+import { router } from 'expo-router';
+import { useApp } from '@/context/app-context';
+import { useAuth } from '@/context/auth-context';
+import { TabBar } from '@/components/tab-bar';
+import type { InterestRequest, Chat } from '@/data/mock';
+
+function MatchCard({ req, onAccept, onDecline }: {
+  req: InterestRequest;
+  onAccept: () => void;
+  onDecline: () => void;
+}) {
+  return (
+    <View style={styles.matchCard}>
+      <View style={styles.matchHeader}>
+        <View style={styles.matchDot} />
+        <Text style={styles.matchLabel}>התאמה חדשה!</Text>
+      </View>
+
+      <View style={styles.matchBody}>
+        <Image source={{ uri: req.itemImage }} style={styles.matchThumb} contentFit="cover" />
+        <View style={styles.matchInfo}>
+          <Text style={styles.matchBuyer}>{req.buyerName}</Text>
+          <Text style={styles.matchItem} numberOfLines={1}>מעוניין/ת ב: {req.itemName}</Text>
+          <Text style={styles.matchQuestion}>הפריט עדיין זמין?</Text>
+          <Text style={styles.matchTime}>{req.createdAt}</Text>
+        </View>
+      </View>
+
+      <View style={styles.matchActions}>
+        <TouchableOpacity style={styles.declineBtn} onPress={onDecline} activeOpacity={0.8}>
+          <Text style={styles.declineBtnText}>❌ לא, נמכר</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.acceptBtn} onPress={onAccept} activeOpacity={0.8}>
+          <Text style={styles.acceptBtnText}>✅ כן, זמין! פתח צ׳אט</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+function ChatRow({ chat }: { chat: Chat }) {
+  const last = chat.messages[chat.messages.length - 1];
+  return (
+    <TouchableOpacity
+      style={styles.chatRow}
+      onPress={() => router.push({ pathname: '/chat/[id]', params: { id: chat.id } })}
+      activeOpacity={0.8}
+    >
+      <Image source={{ uri: chat.itemImage }} style={styles.chatThumb} contentFit="cover" />
+      <View style={styles.chatMeta}>
+        <View style={styles.chatTop}>
+          <Text style={styles.chatTime}>{last?.timestamp ?? ''}</Text>
+          <Text style={styles.chatName}>{chat.otherPartyName}</Text>
+        </View>
+        <Text style={styles.chatItem} numberOfLines={1}>{chat.itemName}</Text>
+        <Text style={styles.chatLast} numberOfLines={1}>{last?.text ?? ''}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+export default function MessagesScreen() {
+  const { requests, chats, respondToRequest } = useApp();
+  const { user } = useAuth();
+
+  const pending = requests.filter(r => r.status === 'pending');
+
+  function handleAccept(requestId: string) {
+    respondToRequest(requestId, true);
+  }
+  function handleDecline(requestId: string) {
+    respondToRequest(requestId, false);
+  }
+
+  const hasContent = pending.length > 0 || chats.length > 0;
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.header}>
+        <Text style={styles.title}>הודעות</Text>
+        {user && (
+          <Text style={styles.subtitle}>{user.firstName} {user.lastName}</Text>
+        )}
+      </View>
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, !hasContent && styles.contentCenter]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Pending match requests */}
+        {pending.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              🔔 התאמות ממתינות ({pending.length})
+            </Text>
+            {pending.map(req => (
+              <MatchCard
+                key={req.id}
+                req={req}
+                onAccept={() => handleAccept(req.id)}
+                onDecline={() => handleDecline(req.id)}
+              />
+            ))}
+          </View>
+        )}
+
+        {/* Active chats */}
+        {chats.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>💬 שיחות פעילות</Text>
+            <View style={styles.chatList}>
+              {chats.map(chat => <ChatRow key={chat.id} chat={chat} />)}
+            </View>
+          </View>
+        )}
+
+        {!hasContent && (
+          <View style={styles.empty}>
+            <Text style={styles.emptyEmoji}>💌</Text>
+            <Text style={styles.emptyTitle}>אין הודעות עדיין</Text>
+            <Text style={styles.emptySub}>
+              כשמישהו יתעניין בפריט שלך{'\n'}או תשלח לייק לפריט — זה יופיע כאן
+            </Text>
+            <TouchableOpacity style={styles.discoverBtn} onPress={() => router.push('/')}>
+              <Text style={styles.discoverBtnText}>צא לגלות פריטים →</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </ScrollView>
+
+      <TabBar />
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#F8F7FF' },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    backgroundColor: '#fff',
+  },
+  title: { fontSize: 22, fontWeight: '900', color: '#111827', textAlign: 'right' },
+  subtitle: { fontSize: 13, color: '#9CA3AF', textAlign: 'right' },
+  scroll: { flex: 1 },
+  content: { padding: 16, gap: 24, paddingBottom: 16 },
+  contentCenter: { flex: 1, justifyContent: 'center' },
+  section: { gap: 12 },
+  sectionTitle: { fontSize: 14, fontWeight: '800', color: '#374151', textAlign: 'right' },
+  // Match card
+  matchCard: {
+    backgroundColor: '#fff', borderRadius: 20, padding: 16, gap: 14,
+    borderWidth: 1.5, borderColor: '#E0E7FF',
+    shadowColor: '#6366F1', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1, shadowRadius: 12, elevation: 4,
+  },
+  matchHeader: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },
+  matchDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#F43F5E' },
+  matchLabel: { fontSize: 12, fontWeight: '700', color: '#F43F5E', textAlign: 'right' },
+  matchBody: { flexDirection: 'row-reverse', gap: 12, alignItems: 'center' },
+  matchThumb: { width: 60, height: 60, borderRadius: 12 },
+  matchInfo: { flex: 1, gap: 3 },
+  matchBuyer: { fontSize: 15, fontWeight: '700', color: '#111827', textAlign: 'right' },
+  matchItem: { fontSize: 13, color: '#6B7280', textAlign: 'right' },
+  matchQuestion: { fontSize: 13, fontWeight: '600', color: '#6366F1', textAlign: 'right' },
+  matchTime: { fontSize: 11, color: '#9CA3AF', textAlign: 'right' },
+  matchActions: { flexDirection: 'row', gap: 10 },
+  declineBtn: {
+    flex: 1, borderRadius: 12, paddingVertical: 11, alignItems: 'center',
+    borderWidth: 1.5, borderColor: '#FCA5A5', backgroundColor: '#FFF1F2',
+  },
+  declineBtnText: { fontSize: 13, fontWeight: '700', color: '#E11D48' },
+  acceptBtn: {
+    flex: 2, borderRadius: 12, paddingVertical: 11, alignItems: 'center',
+    backgroundColor: '#6366F1',
+  },
+  acceptBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  // Chat rows (WhatsApp style)
+  chatList: {
+    backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+  },
+  chatRow: {
+    flexDirection: 'row-reverse', padding: 14, gap: 12, alignItems: 'center',
+    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+  },
+  chatThumb: { width: 52, height: 52, borderRadius: 10 },
+  chatMeta: { flex: 1, gap: 3 },
+  chatTop: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' },
+  chatName: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  chatTime: { fontSize: 11, color: '#9CA3AF' },
+  chatItem: { fontSize: 12, color: '#6366F1', fontWeight: '600', textAlign: 'right' },
+  chatLast: { fontSize: 13, color: '#6B7280', textAlign: 'right' },
+  // Empty state
+  empty: { alignItems: 'center', gap: 14, paddingVertical: 48 },
+  emptyEmoji: { fontSize: 64 },
+  emptyTitle: { fontSize: 22, fontWeight: '800', color: '#111827' },
+  emptySub: { fontSize: 15, color: '#6B7280', textAlign: 'center', lineHeight: 22 },
+  discoverBtn: {
+    marginTop: 8, backgroundColor: '#6366F1',
+    paddingHorizontal: 28, paddingVertical: 14, borderRadius: 100,
+  },
+  discoverBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+});
