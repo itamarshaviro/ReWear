@@ -16,12 +16,12 @@ import { router } from 'expo-router';
 import { useApp } from '@/context/app-context';
 import { AI_RESULTS_BY_CATEGORY, CONDITION_LABELS } from '@/data/mock';
 import { enhanceImage, isCloudinaryConfigured } from '@/lib/cloudinary';
-import { recognizeFromUrl, hexToHebrewColor, suggestPrice } from '@/lib/ai-recognition';
+import { recognizeFromUrl, hexToHebrewColor, suggestPrice, checkImageQuality } from '@/lib/ai-recognition';
 import { useLocalSearchParams } from 'expo-router';
 import type { Category, AiConfidence } from '@/data/mock';
 import type { EnhanceResult } from '@/lib/cloudinary';
 
-type Phase = 'pick' | 'uploading' | 'recognizing' | 'enhanced';
+type Phase = 'pick' | 'checking' | 'uploading' | 'recognizing' | 'enhanced';
 type AiResult = typeof AI_RESULTS_BY_CATEGORY[Category];
 
 const CONFIDENCE_THRESHOLD = 0.70;
@@ -49,6 +49,8 @@ export default function UploadScreen() {
   const [phase, setPhase] = useState<Phase>('pick');
   const [enhance, setEnhance] = useState<EnhanceResult | null>(null);
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
+  const [qualityError, setQualityError] = useState<string | null>(null);
+  const [badImageUri, setBadImageUri] = useState<string | null>(null);
 
   async function pickImage(source: 'camera' | 'gallery') {
     let result: ImagePicker.ImagePickerResult;
@@ -65,6 +67,18 @@ export default function UploadScreen() {
 
     if (result.canceled || !result.assets[0]) return;
     const uri = result.assets[0].uri;
+    setQualityError(null);
+    setBadImageUri(null);
+
+    // Step 0: quality gate
+    setPhase('checking');
+    const quality = await checkImageQuality(uri);
+    if (!quality.isGood) {
+      setBadImageUri(uri);
+      setQualityError(quality.reason ?? 'התמונה לא ברורה מספיק');
+      setPhase('pick');
+      return;
+    }
 
     let enhanceResult: EnhanceResult = { originalUri: uri, enhancedUri: uri, isDemo: true };
 
@@ -161,14 +175,48 @@ export default function UploadScreen() {
         <View style={{ width: 40 }} />
       </View>
 
+      {/* ── Phase: checking quality ── */}
+      {phase === 'checking' && (
+        <View style={styles.processingArea}>
+          <ActivityIndicator size="large" color="#6366F1" />
+          <Text style={styles.processingTitle}>בודק את התמונה...</Text>
+          <View style={styles.stepsList}>
+            <ProcessStep emoji="🔍" label="מנתח איכות ובהירות" active />
+            <ProcessStep emoji="👕" label="מזהה פריט לבוש" active />
+            <ProcessStep emoji="✅" label="מאשר להמשך" active />
+          </View>
+        </View>
+      )}
+
       {/* ── Phase: pick ── */}
       {phase === 'pick' && (
         <View style={styles.pickArea}>
-          <View style={styles.heroIcon}>
-            <Text style={styles.heroEmoji}>📸</Text>
-          </View>
-          <Text style={styles.pickTitle}>הוסף תמונה של הפריט</Text>
-          <Text style={styles.pickSub}>ה-AI ישפר את התמונה ויזהה פרטים אוטומטית</Text>
+
+          {/* Quality error banner */}
+          {qualityError && (
+            <View style={styles.qualityErrorCard}>
+              {badImageUri && (
+                <Image source={{ uri: badImageUri }} style={styles.badImageThumb} contentFit="cover" />
+              )}
+              <View style={styles.qualityErrorBody}>
+                <Text style={styles.qualityErrorTitle}>⚠️ צלם מחדש</Text>
+                <Text style={styles.qualityErrorText}>{qualityError}</Text>
+                <View style={styles.qualityTips}>
+                  <Text style={styles.qualityTip}>• תאורה טובה, רצוי אור יום</Text>
+                  <Text style={styles.qualityTip}>• הפריט יהיה מרכז הפריים</Text>
+                  <Text style={styles.qualityTip}>• רקע נקי ופשוט</Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {!qualityError && (
+            <View style={styles.heroIcon}>
+              <Text style={styles.heroEmoji}>📸</Text>
+            </View>
+          )}
+          <Text style={styles.pickTitle}>{qualityError ? 'נסה שוב' : 'הוסף תמונה של הפריט'}</Text>
+          <Text style={styles.pickSub}>{qualityError ? 'בחר תמונה חדשה ואנו נבדוק שוב' : 'ה-AI ישפר את התמונה ויזהה פרטים אוטומטית'}</Text>
 
           {preLabel && (
             <View style={styles.preSelBadge}>
@@ -424,6 +472,19 @@ const styles = StyleSheet.create({
   priceEmoji: { fontSize: 18 },
   priceLabel: { fontSize: 13, color: '#92400E', width: 72, textAlign: 'right' },
   priceValue: { flex: 1, fontSize: 18, fontWeight: '900', color: '#D97706', textAlign: 'right' },
+
+  // Quality error card
+  qualityErrorCard: {
+    backgroundColor: '#FFF1F2', borderRadius: 20, borderWidth: 1.5, borderColor: '#FECDD3',
+    overflow: 'hidden', width: '100%',
+    flexDirection: 'row-reverse', gap: 0,
+  },
+  badImageThumb: { width: 90, height: 110 },
+  qualityErrorBody: { flex: 1, padding: 12, gap: 6, justifyContent: 'center' },
+  qualityErrorTitle: { fontSize: 15, fontWeight: '800', color: '#BE123C', textAlign: 'right' },
+  qualityErrorText: { fontSize: 12, color: '#9F1239', textAlign: 'right', lineHeight: 18 },
+  qualityTips: { gap: 2, marginTop: 4 },
+  qualityTip: { fontSize: 11, color: '#BE123C', textAlign: 'right' },
 
   continueBtn: {
     backgroundColor: '#6366F1', borderRadius: 16, paddingVertical: 18, alignItems: 'center',

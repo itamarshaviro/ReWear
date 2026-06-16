@@ -334,3 +334,37 @@ export async function recognizeFromUrl(
 export function isHFConfigured(): boolean {
   return HF_TOKEN !== '';
 }
+
+// ── Image quality gate ─────────────────────────────────────────────────────────
+
+export type QualityResult = {
+  isGood: boolean;
+  reason?: string;
+};
+
+export async function checkImageQuality(imageUri: string): Promise<QualityResult> {
+  // No HF token → demo mode, always pass
+  if (!HF_TOKEN) return { isGood: true };
+
+  try {
+    const imgRes = await fetch(imageUri);
+    if (!imgRes.ok) return { isGood: true };
+    const blob = await imgRes.blob();
+    const base64 = await blobToBase64(blob);
+
+    const [clothingAnswer, clarityAnswer] = await Promise.all([
+      callVQA(base64, 'Is this a clear photo of a clothing item such as a shirt, pants, dress, shoes or jacket?'),
+      callVQA(base64, 'Is this photo blurry, too dark, or taken from too far away to see the item clearly?'),
+    ]);
+
+    const notClothing = clothingAnswer.toLowerCase().startsWith('no');
+    const poorQuality  = clarityAnswer.toLowerCase().startsWith('yes');
+
+    if (notClothing) return { isGood: false, reason: 'לא זוהה פריט לבוש בתמונה — ודא שהפריט נמצא במרכז הפריים' };
+    if (poorQuality)  return { isGood: false, reason: 'התמונה מטושטשת, חשוכה או רחוקה מדי — נסה שוב עם תאורה טובה יותר' };
+
+    return { isGood: true };
+  } catch {
+    return { isGood: true }; // network error → allow through
+  }
+}
