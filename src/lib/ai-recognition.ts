@@ -2,7 +2,7 @@ import type { Category, Condition } from '@/data/mock';
 
 const HF_TOKEN     = process.env.EXPO_PUBLIC_HUGGINGFACE_TOKEN ?? '';
 const GEMINI_KEY   = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
-const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_MODEL = 'gemini-1.5-flash';
 const CAPTION_MODEL = 'Salesforce/blip-image-captioning-base';
 const VQA_MODEL     = 'Salesforce/blip-vqa-base';
 
@@ -262,6 +262,17 @@ async function callCaption(blob: Blob): Promise<string> {
   return data[0]?.generated_text ?? '';
 }
 
+async function callOCR(blob: Blob): Promise<string> {
+  if (!HF_TOKEN) return '';
+  const res = await fetch(
+    'https://api-inference.huggingface.co/models/microsoft/trocr-base-printed',
+    { method: 'POST', headers: { 'Content-Type': 'application/octet-stream', ...hfHeaders() }, body: blob }
+  );
+  if (!res.ok) return '';
+  const data = await res.json() as { generated_text?: string }[];
+  return data[0]?.generated_text ?? '';
+}
+
 async function callVQA(base64: string, question: string): Promise<string> {
   const res = await fetch(
     `https://api-inference.huggingface.co/models/${VQA_MODEL}`,
@@ -304,10 +315,9 @@ const VALID_CONDITIONS: Condition[] = [
 
 async function callGeminiVision(base64: string, mimeType: string, prompt: string): Promise<string> {
   // AQ. keys are OAuth tokens → use Bearer auth; AIza keys are API keys → use ?key=
+  // AQ. keys = OAuth tokens (Bearer); AIza keys = static API keys (?key=)
   const isOAuth = GEMINI_KEY.startsWith('AQ.');
-  const url = isOAuth
-    ? `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent`
-    : `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent${isOAuth ? '' : `?key=${GEMINI_KEY}`}`;
   const authHeader: Record<string, string> = isOAuth
     ? { Authorization: `Bearer ${GEMINI_KEY}` }
     : {};
@@ -323,7 +333,11 @@ async function callGeminiVision(base64: string, mimeType: string, prompt: string
       generationConfig: { temperature: 0.1, maxOutputTokens: 512 },
     }),
   });
-  if (!res.ok) return '';
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as { error?: { code?: number; message?: string } };
+    console.error('[Gemini]', res.status, err?.error?.message?.slice(0, 100));
+    return '';
+  }
   const data = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
@@ -405,21 +419,22 @@ export async function recognizeFromUrl(
     const brandQ1 = `What clothing brand is shown on this ${itemDesc}? For example: Nike, Adidas, Zara, H&M, Levi's, Puma, Ralph Lauren.`;
     const brandQ2 = `Is there a brand logo or label visible? What brand is it?`;
 
-    const [caption, brandAnswer1, brandAnswer2, typeAnswer, colorAnswer, conditionAnswer] = await Promise.all([
+    const [caption, brandAnswer1, brandAnswer2, typeAnswer, colorAnswer, conditionAnswer, ocrText] = await Promise.all([
       callCaption(blob),
       callVQA(base64, brandQ1),
       callVQA(base64, brandQ2),
       hint?.category ? Promise.resolve('') : callVQA(base64, 'What type of clothing item is this?'),
       callVQA(base64, 'What is the main color of this clothing item?'),
       callVQA(base64, 'Does this clothing look new, gently used, or worn out?'),
+      callOCR(blob),
     ]);
 
     if (!caption && !brandAnswer1 && !typeAnswer && !colorAnswer) return null;
 
     const allText = [caption, brandAnswer1, brandAnswer2, typeAnswer].join(' ');
 
-    // Brand: try both VQA answers then fall back to caption
-    const brand = parseBrand(brandAnswer1) ?? parseBrand(brandAnswer2) ?? parseBrand(caption);
+    // Brand: OCR reads printed text directly → best for "RIP CURL", "NIKE" etc. on garments
+    const brand = parseBrand(ocrText) ?? parseBrand(brandAnswer1) ?? parseBrand(brandAnswer2) ?? parseBrand(caption);
     // Color: direct VQA answer first, then caption
     const color = parseColor(colorAnswer) ?? parseColor(caption);
     // Use pre-selected category from classify screen if available
