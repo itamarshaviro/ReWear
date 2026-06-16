@@ -1,6 +1,8 @@
 import type { Category, Condition } from '@/data/mock';
 
-const HF_TOKEN = process.env.EXPO_PUBLIC_HUGGINGFACE_TOKEN ?? '';
+const HF_TOKEN     = process.env.EXPO_PUBLIC_HUGGINGFACE_TOKEN ?? '';
+const GEMINI_KEY   = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
+const GEMINI_MODEL = 'gemini-1.5-flash';
 const CAPTION_MODEL = 'Salesforce/blip-image-captioning-base';
 const VQA_MODEL     = 'Salesforce/blip-vqa-base';
 
@@ -290,6 +292,89 @@ export type RecognitionHint = {
   gender?: string;
 };
 
+// ── Gemini Vision ──────────────────────────────────────────────────────────────
+
+const VALID_CATEGORIES: Category[] = [
+  'mens-shirts', 'mens-pants', 'womens-dresses', 'womens-shirts',
+  'womens-tops', 'shoes', 'accessories',
+];
+const VALID_CONDITIONS: Condition[] = [
+  'new-with-tag', 'new-without-tag', 'perfect', 'good', 'fair', 'for-parts',
+];
+
+async function callGeminiVision(base64: string, mimeType: string, prompt: string): Promise<string> {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [
+          { inline_data: { mime_type: mimeType, data: base64 } },
+          { text: prompt },
+        ]}],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 512 },
+      }),
+    }
+  );
+  if (!res.ok) return '';
+  const data = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+}
+
+async function recognizeWithGemini(
+  blob: Blob, base64: string, hint?: RecognitionHint
+): Promise<RecognitionResult | null> {
+  const mimeType = blob.type || 'image/jpeg';
+  const categoryHint = hint?.category
+    ? `The user said this is: ${CATEGORY_EN[hint.category] ?? hint.category}.`
+    : '';
+
+  const prompt = `Analyze this secondhand clothing image for a resale marketplace. ${categoryHint}
+
+Read any visible text or logos carefully — brand names are often printed or embroidered on the item.
+
+Return ONLY a JSON object (no markdown, no explanation):
+{
+  "brand": "brand name if ANY text/logo is visible — e.g. Rip Curl, Nike, Adidas, Zara, H&M, Levi's, Champion. null if truly invisible",
+  "color": "main color in Hebrew, choose closest: שחור, לבן, אפור, כחול, נייבי, כחול בהיר, אדום, ירוק, זית, חום, ורוד, צהוב, כתום, סגול, בז', קרם, בורדו, טורקיז, כסף, זהב, צבעוני, חאקי",
+  "category": "exactly one of: mens-shirts, mens-pants, womens-dresses, womens-shirts, womens-tops, shoes, accessories",
+  "condition": "exactly one of: new-with-tag, new-without-tag, perfect, good, fair, for-parts — based on visible wear, fading, stains, tags",
+  "caption": "one sentence describing the item in English"
+}`;
+
+  const text = await callGeminiVision(base64, mimeType, prompt);
+  if (!text) return null;
+
+  try {
+    const match = text.match(/\{[\s\S]*?\}/);
+    if (!match) return null;
+    const g = JSON.parse(match[0]) as {
+      brand?: string | null;
+      color?: string | null;
+      category?: string | null;
+      condition?: string | null;
+      caption?: string | null;
+    };
+
+    const brand     = g.brand     ? parseBrand(g.brand) ?? g.brand          : undefined;
+    const color     = g.color     ?? undefined;
+    const category  = VALID_CATEGORIES.includes(g.category as Category)
+                        ? (g.category as Category)
+                        : hint?.category;
+    const condition = VALID_CONDITIONS.includes(g.condition as Condition)
+                        ? (g.condition as Condition)
+                        : undefined;
+    const caption   = g.caption ?? '';
+
+    return buildResult(caption, brand, color, category, condition);
+  } catch {
+    return null;
+  }
+}
+
+export function isGeminiConfigured(): boolean { return GEMINI_KEY !== ''; }
+
 // ── Main export ────────────────────────────────────────────────────────────────
 
 export async function recognizeFromUrl(
@@ -302,13 +387,18 @@ export async function recognizeFromUrl(
     const blob = await imgRes.blob();
     const base64 = await blobToBase64(blob);
 
-    // Build brand VQA prompts — two shots for better detection
+    // ── Gemini path (preferred — reads text/logos accurately) ──────────────────
+    if (GEMINI_KEY) {
+      const result = await recognizeWithGemini(blob, base64, hint);
+      if (result) return result;
+      // fall through to BLIP if Gemini fails
+    }
+
+    // ── BLIP fallback (no Gemini key configured) ───────────────────────────────
     const itemDesc = hint?.category ? CATEGORY_EN[hint.category] ?? 'clothing item' : 'clothing item';
     const brandQ1 = `What clothing brand is shown on this ${itemDesc}? For example: Nike, Adidas, Zara, H&M, Levi's, Puma, Ralph Lauren.`;
     const brandQ2 = `Is there a brand logo or label visible? What brand is it?`;
 
-    // Run all VQA calls in parallel.
-    // Skip type VQA if category is already known from classify screen.
     const [caption, brandAnswer1, brandAnswer2, typeAnswer, colorAnswer, conditionAnswer] = await Promise.all([
       callCaption(blob),
       callVQA(base64, brandQ1),

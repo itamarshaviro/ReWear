@@ -16,7 +16,7 @@ import { router } from 'expo-router';
 import { useApp } from '@/context/app-context';
 import { AI_RESULTS_BY_CATEGORY, CONDITION_LABELS } from '@/data/mock';
 import { enhanceImage, isCloudinaryConfigured } from '@/lib/cloudinary';
-import { recognizeFromUrl, hexToHebrewColor, suggestPrice, checkImageQuality } from '@/lib/ai-recognition';
+import { recognizeFromUrl, hexToHebrewColor, suggestPrice, checkImageQuality, isGeminiConfigured } from '@/lib/ai-recognition';
 import { useLocalSearchParams } from 'expo-router';
 import type { Category, AiConfidence } from '@/data/mock';
 import type { EnhanceResult } from '@/lib/cloudinary';
@@ -237,6 +237,11 @@ export default function UploadScreen() {
               </Text>
             </View>
           )}
+          <View style={[styles.cloudinaryBadge, isGeminiConfigured() ? styles.geminiBadge : styles.demoBadge]}>
+            <Text style={[styles.cloudinaryBadgeText, isGeminiConfigured() ? styles.geminiBadgeText : styles.demoBadgeText]}>
+              {isGeminiConfigured() ? '✨ Gemini AI — זיהוי מותגים וצבעים' : '🤖 BLIP — הגדר Gemini לזיהוי מדויק יותר'}
+            </Text>
+          </View>
 
           <View style={styles.pickButtons}>
             <TouchableOpacity style={[styles.pickBtn, styles.cameraBtn]} onPress={() => pickImage('camera')} activeOpacity={0.85}>
@@ -396,6 +401,8 @@ const styles = StyleSheet.create({
   cloudinaryBadgeText: { fontSize: 13, fontWeight: '700', color: '#6366F1' },
   demoBadge: { backgroundColor: '#FEF3C7' },
   demoBadgeText: { color: '#92400E' },
+  geminiBadge: { backgroundColor: '#F0FDF4' },
+  geminiBadgeText: { color: '#15803D' },
   pickButtons: { width: '100%', gap: 14, marginTop: 4 },
   pickBtn: { borderRadius: 20, paddingVertical: 22, paddingHorizontal: 24, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 12 },
   cameraBtn: { backgroundColor: '#6366F1' },
