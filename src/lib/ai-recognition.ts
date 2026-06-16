@@ -352,16 +352,34 @@ export async function checkImageQuality(imageUri: string): Promise<QualityResult
     const blob = await imgRes.blob();
     const base64 = await blobToBase64(blob);
 
-    const [clothingAnswer, clarityAnswer] = await Promise.all([
-      callVQA(base64, 'Is this a clear photo of a clothing item such as a shirt, pants, dress, shoes or jacket?'),
-      callVQA(base64, 'Is this photo blurry, too dark, or taken from too far away to see the item clearly?'),
+    // Caption tells us what's actually in the image
+    const [caption, fullVisibleAnswer, suitableAnswer] = await Promise.all([
+      callCaption(blob),
+      callVQA(base64, 'Can you see the entire clothing item completely from top to bottom without anything being cut off?'),
+      callVQA(base64, 'Is this photo well-lit and clear enough to use as an online store product photo?'),
     ]);
 
-    const notClothing = clothingAnswer.toLowerCase().startsWith('no');
-    const poorQuality  = clarityAnswer.toLowerCase().startsWith('yes');
+    // Caption must mention clothing
+    const CLOTHING_WORDS = [
+      'shirt', 'pants', 'dress', 'jacket', 'jeans', 'coat', 'top', 'skirt',
+      'sweater', 'hoodie', 'shorts', 'boots', 'sneakers', 'shoes', 'blouse',
+      'suit', 'vest', 'cardigan', 'trousers', 'leggings', 'sock', 'hat',
+    ];
+    const captionHasClothing = CLOTHING_WORDS.some(w => caption.toLowerCase().includes(w));
 
-    if (notClothing) return { isGood: false, reason: 'לא זוהה פריט לבוש בתמונה — ודא שהפריט נמצא במרכז הפריים' };
-    if (poorQuality)  return { isGood: false, reason: 'התמונה מטושטשת, חשוכה או רחוקה מדי — נסה שוב עם תאורה טובה יותר' };
+    // Strict logic: only accept explicit "yes" — anything else is a rejection
+    const fullVisible = fullVisibleAnswer.toLowerCase().startsWith('yes');
+    const suitable    = suitableAnswer.toLowerCase().startsWith('yes');
+
+    if (!captionHasClothing) {
+      return { isGood: false, reason: 'לא זוהה פריט לבוש בתמונה — הנח את הבגד במרכז הפריים וצלם מחדש' };
+    }
+    if (!fullVisible) {
+      return { isGood: false, reason: 'הפריט לא נראה במלואו — צלם את הבגד השלם כולל החלק העליון והתחתון' };
+    }
+    if (!suitable) {
+      return { isGood: false, reason: 'התמונה לא מתאימה לפרסום — נסה עם תאורה טובה יותר ורקע נקי' };
+    }
 
     return { isGood: true };
   } catch {
