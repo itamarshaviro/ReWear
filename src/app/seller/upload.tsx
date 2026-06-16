@@ -126,7 +126,7 @@ export default function UploadScreen() {
           name:      hfResult.brand || hfResult.category ? 0.82 : 0,
           brand:     hfResult.brand     ? 0.88 : 0,
           category:  hfResult.category  ? 0.93 : 0,
-          condition: hfResult.condition ? 0.76 : 0,
+          condition: hfResult.condition ? 0.76 : 0.72, // 0.72 = default 'good', still above threshold
           color:     color              ? 0.85 : 0,
         },
       };

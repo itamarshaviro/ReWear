@@ -138,9 +138,9 @@ const CATEGORY_KEYWORDS: [string[], Category][] = [
 const CONDITION_KEYWORDS: [string[], Condition][] = [
   [['new with tag', 'brand new', 'with tags', 'bnwt', 'still tagged'], 'new-with-tag'],
   [['new without tag', 'unworn', 'never worn', 'nwot'], 'new-without-tag'],
-  [['excellent', 'like new', 'mint', 'perfect condition'], 'perfect'],
-  [['good condition', 'gently used', 'light wear', 'lightly used'], 'good'],
-  [['fair', 'some wear', 'visible wear', 'worn', 'used'], 'fair'],
+  [['excellent', 'like new', 'mint', 'perfect condition', 'looks new'], 'perfect'],
+  [['good condition', 'gently used', 'light wear', 'lightly used', 'lightly worn', 'clean', 'new'], 'good'],
+  [['fair', 'some wear', 'visible wear', 'worn out', 'worn', 'heavily worn', 'heavy wear', 'used'], 'fair'],
 ];
 
 // ── Text parser ────────────────────────────────────────────────────────────────
@@ -304,26 +304,30 @@ export async function recognizeFromUrl(
 
     // Build brand VQA prompt using hint for specificity
     const itemDesc = hint?.category ? CATEGORY_EN[hint.category] ?? 'clothing item' : 'clothing item';
-    const brandQuestion = `What brand name or logo is visible on this ${itemDesc}?`;
+    const brandQuestion = `What brand name or logo is visible on this ${itemDesc}? Say the brand name only, or "none".`;
 
-    // Run caption + brand VQA in parallel.
+    // Run all VQA calls in parallel.
     // Skip type VQA if category is already known from classify screen.
-    const [caption, brandAnswer, typeAnswer] = await Promise.all([
+    const [caption, brandAnswer, typeAnswer, colorAnswer, conditionAnswer] = await Promise.all([
       callCaption(blob),
       callVQA(base64, brandQuestion),
       hint?.category ? Promise.resolve('') : callVQA(base64, 'What type of clothing item is this?'),
+      callVQA(base64, 'What is the main color of this clothing item?'),
+      callVQA(base64, 'Does this clothing look new, gently used, or worn out?'),
     ]);
 
-    if (!caption && !brandAnswer && !typeAnswer) return null;
+    if (!caption && !brandAnswer && !typeAnswer && !colorAnswer) return null;
 
     const allText = [caption, brandAnswer, typeAnswer].join(' ');
 
     // Brand: VQA answer takes priority over caption
     const brand = parseBrand(brandAnswer) ?? parseBrand(caption);
-    const color = parseColor(caption);
+    // Color: direct VQA answer first, then caption
+    const color = parseColor(colorAnswer) ?? parseColor(caption);
     // Use pre-selected category from classify screen if available
     const category = hint?.category ?? parseCategory(typeAnswer) ?? parseCategory(allText);
-    const condition = parseCondition(caption);
+    // Condition: direct VQA answer first, then caption
+    const condition = parseCondition(conditionAnswer) ?? parseCondition(caption);
 
     return buildResult(caption || allText, brand, color, category, condition);
   } catch {
