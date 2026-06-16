@@ -302,26 +302,28 @@ export async function recognizeFromUrl(
     const blob = await imgRes.blob();
     const base64 = await blobToBase64(blob);
 
-    // Build brand VQA prompt using hint for specificity
+    // Build brand VQA prompts — two shots for better detection
     const itemDesc = hint?.category ? CATEGORY_EN[hint.category] ?? 'clothing item' : 'clothing item';
-    const brandQuestion = `What brand name or logo is visible on this ${itemDesc}? Say the brand name only, or "none".`;
+    const brandQ1 = `What clothing brand is shown on this ${itemDesc}? For example: Nike, Adidas, Zara, H&M, Levi's, Puma, Ralph Lauren.`;
+    const brandQ2 = `Is there a brand logo or label visible? What brand is it?`;
 
     // Run all VQA calls in parallel.
     // Skip type VQA if category is already known from classify screen.
-    const [caption, brandAnswer, typeAnswer, colorAnswer, conditionAnswer] = await Promise.all([
+    const [caption, brandAnswer1, brandAnswer2, typeAnswer, colorAnswer, conditionAnswer] = await Promise.all([
       callCaption(blob),
-      callVQA(base64, brandQuestion),
+      callVQA(base64, brandQ1),
+      callVQA(base64, brandQ2),
       hint?.category ? Promise.resolve('') : callVQA(base64, 'What type of clothing item is this?'),
       callVQA(base64, 'What is the main color of this clothing item?'),
       callVQA(base64, 'Does this clothing look new, gently used, or worn out?'),
     ]);
 
-    if (!caption && !brandAnswer && !typeAnswer && !colorAnswer) return null;
+    if (!caption && !brandAnswer1 && !typeAnswer && !colorAnswer) return null;
 
-    const allText = [caption, brandAnswer, typeAnswer].join(' ');
+    const allText = [caption, brandAnswer1, brandAnswer2, typeAnswer].join(' ');
 
-    // Brand: VQA answer takes priority over caption
-    const brand = parseBrand(brandAnswer) ?? parseBrand(caption);
+    // Brand: try both VQA answers then fall back to caption
+    const brand = parseBrand(brandAnswer1) ?? parseBrand(brandAnswer2) ?? parseBrand(caption);
     // Color: direct VQA answer first, then caption
     const color = parseColor(colorAnswer) ?? parseColor(caption);
     // Use pre-selected category from classify screen if available
