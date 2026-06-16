@@ -2,7 +2,7 @@ import type { Category, Condition } from '@/data/mock';
 
 const HF_TOKEN     = process.env.EXPO_PUBLIC_HUGGINGFACE_TOKEN ?? '';
 const GEMINI_KEY   = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
-const GEMINI_MODEL = 'gemini-1.5-flash';
+const GEMINI_MODEL = 'gemini-2.0-flash';
 const CAPTION_MODEL = 'Salesforce/blip-image-captioning-base';
 const VQA_MODEL     = 'Salesforce/blip-vqa-base';
 
@@ -303,20 +303,26 @@ const VALID_CONDITIONS: Condition[] = [
 ];
 
 async function callGeminiVision(base64: string, mimeType: string, prompt: string): Promise<string> {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [
-          { inline_data: { mime_type: mimeType, data: base64 } },
-          { text: prompt },
-        ]}],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 512 },
-      }),
-    }
-  );
+  // AQ. keys are OAuth tokens → use Bearer auth; AIza keys are API keys → use ?key=
+  const isOAuth = GEMINI_KEY.startsWith('AQ.');
+  const url = isOAuth
+    ? `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent`
+    : `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`;
+  const authHeader: Record<string, string> = isOAuth
+    ? { Authorization: `Bearer ${GEMINI_KEY}` }
+    : {};
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeader },
+    body: JSON.stringify({
+      contents: [{ parts: [
+        { inline_data: { mime_type: mimeType, data: base64 } },
+        { text: prompt },
+      ]}],
+      generationConfig: { temperature: 0.1, maxOutputTokens: 512 },
+    }),
+  });
   if (!res.ok) return '';
   const data = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
