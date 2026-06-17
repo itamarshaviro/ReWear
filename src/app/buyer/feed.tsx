@@ -82,8 +82,8 @@ function SwipeCard({ item, translateX, translateY, pan, isTop, depth }: CardProp
 
   const inner = (
     <View style={styles.card}>
-      {/* Full-bleed image */}
-      <Image source={{ uri: item.imageUrl }} style={styles.cardImage} contentFit="cover" />
+      {/* Full garment visible */}
+      <Image source={{ uri: item.imageUrl }} style={styles.cardImage} contentFit="contain" />
 
       {/* Swipe intention tags — fashion language, not LIKE/NOPE */}
       {isTop && (
