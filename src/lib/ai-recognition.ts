@@ -203,7 +203,7 @@ export type RecognitionResult = {
   };
 };
 
-function buildResult(caption: string, brand?: string, color?: string, category?: Category, condition?: Condition): RecognitionResult {
+function buildResult(caption: string, brand?: string, color?: string, category?: Category, condition?: Condition, aiPrice?: number): RecognitionResult {
   const CATEGORY_HE: Partial<Record<Category, string>> = {
     'mens-pants': 'מכנסיים', 'mens-shirts': 'חולצה', 'womens-dresses': 'שמלה',
     'womens-shirts': 'חולצה', 'womens-tops': 'גופייה', 'shoes': 'נעליים',
@@ -213,7 +213,7 @@ function buildResult(caption: string, brand?: string, color?: string, category?:
   const name = catName
     ? `${brand ? brand + ' ' : ''}${catName}${color ? ' ' + color : ''}`
     : undefined;
-  const price = suggestPrice(brand, condition ?? 'good');
+  const price = aiPrice ?? suggestPrice(brand, condition ?? 'good');
 
   return {
     caption,
@@ -408,7 +408,7 @@ async function callOpenAIVision(base64: string, mimeType: string, prompt: string
         { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}`, detail: 'high' } },
         { type: 'text', text: prompt },
       ]}],
-      max_tokens: 300,
+      max_tokens: 400,
       temperature: 0.1,
     }),
   });
@@ -425,7 +425,7 @@ async function recognizeWithOpenAI(
     ? `The user indicated this is: ${CATEGORY_EN[hint.category] ?? hint.category}.`
     : '';
 
-  const prompt = `You are analyzing a secondhand clothing photo for a resale marketplace app. ${categoryHint}
+  const prompt = `You are analyzing a secondhand clothing photo for a resale marketplace app in Israel. ${categoryHint}
 
 Look carefully — read ANY text or logo visible on the clothing to identify the brand.
 
@@ -435,7 +435,8 @@ Return ONLY valid JSON (no markdown):
   "color": "main color in Hebrew, pick closest: שחור, לבן, אפור, כחול, נייבי, כחול בהיר, אדום, ירוק, זית, חום, ורוד, צהוב, כתום, סגול, בז', קרם, בורדו, טורקיז, זהב, כסף, צבעוני, חאקי",
   "category": "one of: mens-shirts, mens-pants, womens-dresses, womens-shirts, womens-tops, shoes, accessories",
   "condition": "one of: new-with-tag, new-without-tag, perfect, good, fair, for-parts — judge by visible wear, fading, stains, tags",
-  "caption": "one sentence describing the item in English"
+  "caption": "one sentence describing the item in English",
+  "suggestedPrice": a fair secondhand resale price in Israeli shekels (NIS) as a number. Base it on: typical retail price for this brand × condition discount (new-with-tag=85%, new-without-tag=70%, perfect=55%, good=40%, fair=25%). Reference retail prices: Nike/Adidas shirt ≈ 200-300 NIS, Zara ≈ 150-250 NIS, H&M ≈ 80-150 NIS, Rip Curl/Billabong ≈ 200-350 NIS, luxury brands ≈ 800-3000 NIS. Return null if uncertain.
 }`;
 
   const text = await callOpenAIVision(base64, mimeType, prompt);
@@ -450,6 +451,7 @@ Return ONLY valid JSON (no markdown):
       category?: string | null;
       condition?: string | null;
       caption?: string | null;
+      suggestedPrice?: number | null;
     };
 
     const clean = (v: string | null | undefined) =>
@@ -461,8 +463,11 @@ Return ONLY valid JSON (no markdown):
                         ? (g.category as Category) : hint?.category;
     const condition = VALID_CONDITIONS.includes(g.condition as Condition)
                         ? (g.condition as Condition) : undefined;
+    const aiPrice   = typeof g.suggestedPrice === 'number' && g.suggestedPrice > 0
+                        ? Math.round(g.suggestedPrice / 5) * 5
+                        : undefined;
 
-    return buildResult(clean(g.caption) ?? '', brand, color, category, condition);
+    return buildResult(clean(g.caption) ?? '', brand, color, category, condition, aiPrice);
   } catch {
     return null;
   }
