@@ -302,7 +302,7 @@ export default function UploadScreen() {
 
           <View style={styles.beforeAfterRow}>
             <View style={styles.imageBox}>
-              <Image source={{ uri: enhance.originalUri }} style={styles.beforeAfterImg} contentFit="cover" />
+              <Image source={{ uri: enhance.originalUri }} style={styles.beforeAfterImg} contentFit="contain" />
               <View style={styles.imageLabel}>
                 <Text style={styles.imageLabelText}>לפני</Text>
               </View>
@@ -311,7 +311,7 @@ export default function UploadScreen() {
               <Text style={styles.arrow}>→</Text>
             </View>
             <View style={styles.imageBox}>
-              <Image source={{ uri: enhance.enhancedUri }} style={styles.beforeAfterImg} contentFit="cover" />
+              <Image source={{ uri: enhance.enhancedUri }} style={styles.beforeAfterImg} contentFit="contain" />
               <View style={[styles.imageLabel, styles.imageLabelAfter]}>
                 <Text style={[styles.imageLabelText, styles.imageLabelTextAfter]}>אחרי ✨</Text>
               </View>
@@ -432,8 +432,8 @@ const styles = StyleSheet.create({
   demoNotice: { backgroundColor: '#FEF3C7', borderRadius: 12, padding: 10 },
   demoNoticeText: { fontSize: 12, color: '#92400E', textAlign: 'center' },
   beforeAfterRow: { flexDirection: 'row-reverse', gap: 8, alignItems: 'center' },
-  imageBox: { flex: 1, borderRadius: 16, overflow: 'hidden', position: 'relative' },
-  beforeAfterImg: { width: '100%', height: 200 },
+  imageBox: { flex: 1, borderRadius: 16, overflow: 'hidden', position: 'relative', backgroundColor: '#F3F4F6' },
+  beforeAfterImg: { width: '100%', height: 260, backgroundColor: '#F3F4F6' },
   imageLabel: {
     position: 'absolute', bottom: 8, right: 8,
     backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
