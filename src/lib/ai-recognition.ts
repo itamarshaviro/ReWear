@@ -405,7 +405,7 @@ async function callOpenAIVision(base64: string, mimeType: string, prompt: string
     body: JSON.stringify({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: [
-        { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}`, detail: 'low' } },
+        { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}`, detail: 'high' } },
         { type: 'text', text: prompt },
       ]}],
       max_tokens: 300,
