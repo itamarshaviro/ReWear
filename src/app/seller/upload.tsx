@@ -16,7 +16,7 @@ import { router } from 'expo-router';
 import { useApp } from '@/context/app-context';
 import { AI_RESULTS_BY_CATEGORY, CONDITION_LABELS } from '@/data/mock';
 import { enhanceImage, isCloudinaryConfigured } from '@/lib/cloudinary';
-import { recognizeFromUrl, hexToHebrewColor, suggestPrice, checkImageQuality, isGeminiConfigured } from '@/lib/ai-recognition';
+import { recognizeFromUrl, hexToHebrewColor, suggestPrice, checkImageQuality, isGeminiConfigured, isOpenAIConfigured } from '@/lib/ai-recognition';
 import { useLocalSearchParams } from 'expo-router';
 import type { Category, AiConfidence } from '@/data/mock';
 import type { EnhanceResult } from '@/lib/cloudinary';
@@ -237,9 +237,9 @@ export default function UploadScreen() {
               </Text>
             </View>
           )}
-          <View style={[styles.cloudinaryBadge, isGeminiConfigured() ? styles.geminiBadge : styles.demoBadge]}>
-            <Text style={[styles.cloudinaryBadgeText, isGeminiConfigured() ? styles.geminiBadgeText : styles.demoBadgeText]}>
-              {isGeminiConfigured() ? '✨ Gemini AI — זיהוי מותגים וצבעים' : '🤖 BLIP — הגדר Gemini לזיהוי מדויק יותר'}
+          <View style={[styles.cloudinaryBadge, (isOpenAIConfigured() || isGeminiConfigured()) ? styles.geminiBadge : styles.demoBadge]}>
+            <Text style={[styles.cloudinaryBadgeText, (isOpenAIConfigured() || isGeminiConfigured()) ? styles.geminiBadgeText : styles.demoBadgeText]}>
+              {isOpenAIConfigured() ? '✨ GPT-4o-mini — זיהוי מותגים וצבעים' : isGeminiConfigured() ? '✨ Gemini AI — זיהוי מותגים וצבעים' : '🤖 BLIP — הגדר OpenAI לזיהוי מדויק יותר'}
             </Text>
           </View>
 
