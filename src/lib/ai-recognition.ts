@@ -452,14 +452,17 @@ Return ONLY valid JSON (no markdown):
       caption?: string | null;
     };
 
-    const brand     = g.brand     ? parseBrand(g.brand) ?? g.brand : undefined;
-    const color     = g.color     ?? undefined;
+    const clean = (v: string | null | undefined) =>
+      v && v.toLowerCase() !== 'null' && v.toLowerCase() !== 'none' && v.trim() !== '' ? v : undefined;
+
+    const brand     = clean(g.brand) ? parseBrand(clean(g.brand)!) ?? clean(g.brand) : undefined;
+    const color     = clean(g.color);
     const category  = VALID_CATEGORIES.includes(g.category as Category)
                         ? (g.category as Category) : hint?.category;
     const condition = VALID_CONDITIONS.includes(g.condition as Condition)
                         ? (g.condition as Condition) : undefined;
 
-    return buildResult(g.caption ?? '', brand, color, category, condition);
+    return buildResult(clean(g.caption) ?? '', brand, color, category, condition);
   } catch {
     return null;
   }
