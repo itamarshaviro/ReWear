@@ -1,10 +1,11 @@
 export type Category =
   | 'mens-pants'
   | 'mens-shirts'
+  | 'mens-shoes'
   | 'womens-dresses'
   | 'womens-shirts'
   | 'womens-tops'
-  | 'shoes'
+  | 'womens-shoes'
   | 'accessories';
 
 export type Condition =
@@ -98,10 +99,11 @@ export type AiDraft = {
 export const CATEGORY_INFO: Record<Category, { label: string; emoji: string }> = {
   'mens-pants':     { label: 'מכנסי גברים',  emoji: '👖' },
   'mens-shirts':    { label: 'חולצות גברים', emoji: '👔' },
+  'mens-shoes':     { label: 'נעלי גברים',   emoji: '👟' },
   'womens-dresses': { label: 'שמלות נשים',   emoji: '👗' },
   'womens-shirts':  { label: 'חולצות נשים',  emoji: '👚' },
   'womens-tops':    { label: 'גופיות נשים',  emoji: '🎽' },
-  'shoes':          { label: 'נעליים',        emoji: '👟' },
+  'womens-shoes':   { label: 'נעלי נשים',    emoji: '👠' },
   'accessories':    { label: 'אביזרים',       emoji: '👜' },
 };
 
@@ -170,9 +172,12 @@ export const MOCK_ITEMS: ClothingItem[] = [
   { id: 'wt1', sellerId: 's12', sellerName: 'רותם ג.',   sellerRating: 3.8, name: 'גופיית בסיסית לבנה',        brand: 'Basic House',   category: 'womens-tops',    price: 35,  size: 'M',     condition: 'good',            color: 'לבן',      description: 'גופייה קלאסית ונוחה, מצב מצוין.',        imageUrl: 'https://picsum.photos/seed/wt1/400/600', location: 'חיפה',       distance: 1.8 },
   { id: 'wt2', sellerId: 's13', sellerName: 'הילה כ.',   sellerRating: 4.1, name: 'גופיית רצועות שחורה',        brand: 'H&M',           category: 'womens-tops',    price: 45,  size: 'S',     condition: 'new-without-tag', color: 'שחור',     description: 'גופיית רצועות בסיסית ואיכותית.',          imageUrl: 'https://picsum.photos/seed/wt2/400/600', location: 'נתניה',      distance: 7.4 },
   // נעליים
-  { id: 'sh1', sellerId: 's14', sellerName: 'יואב מ.',   sellerRating: 4.7, name: 'סניקרס לבן Air Force',      brand: 'Nike',          category: 'shoes',          price: 350, size: '42',    condition: 'good',            color: 'לבן',      description: 'נעליים לבנות, שימוש קל.',               imageUrl: 'https://picsum.photos/seed/sh1/400/600', location: 'תל אביב',    distance: 2.5 },
-  { id: 'sh2', sellerId: 's15', sellerName: 'רינת ב.',   sellerRating: 5.0, name: "נעלי עקב בז'",             brand: 'Zara',          category: 'shoes',          price: 180, size: '37',    condition: 'new-with-tag',    color: "בז'",      description: 'נעלי עקב אלגנטיות, לא נלבשו.',           imageUrl: 'https://picsum.photos/seed/sh2/400/600', location: 'כפר סבא',    distance: 9.1 },
-  { id: 'sh3', sellerId: 's16', sellerName: 'גולן א.',   sellerRating: 4.5, name: 'מגפיים שחורות',             brand: 'Dr. Martens',   category: 'shoes',          price: 420, size: '40',    condition: 'good',            color: 'שחור',     description: 'מגפיים קלאסיות, נלבשו עונה אחת.',        imageUrl: 'https://picsum.photos/seed/sh3/400/600', location: 'ירושלים',    distance: 15.3 },
+  // נעלי גברים
+  { id: 'sh1', sellerId: 's14', sellerName: 'יואב מ.',   sellerRating: 4.7, name: 'סניקרס לבן Air Force',      brand: 'Nike',          category: 'mens-shoes',     price: 350, size: '42',    condition: 'good',            color: 'לבן',      description: 'נעליים לבנות, שימוש קל.',               imageUrl: 'https://picsum.photos/seed/sh1/400/600', location: 'תל אביב',    distance: 2.5 },
+  { id: 'sh4', sellerId: 's19', sellerName: 'עידן ל.',   sellerRating: 4.3, name: "נעלי ספורט שחורות Adidas",  brand: 'Adidas',        category: 'mens-shoes',     price: 280, size: '44',    condition: 'perfect',         color: 'שחור',     description: 'נעלי ריצה, מצב מצוין.',                 imageUrl: 'https://picsum.photos/seed/sh4/400/600', location: 'תל אביב',    distance: 3.1 },
+  // נעלי נשים
+  { id: 'sh2', sellerId: 's15', sellerName: 'רינת ב.',   sellerRating: 5.0, name: "נעלי עקב בז'",             brand: 'Zara',          category: 'womens-shoes',   price: 180, size: '37',    condition: 'new-with-tag',    color: "בז'",      description: 'נעלי עקב אלגנטיות, לא נלבשו.',           imageUrl: 'https://picsum.photos/seed/sh2/400/600', location: 'כפר סבא',    distance: 9.1 },
+  { id: 'sh3', sellerId: 's16', sellerName: 'גלית ר.',   sellerRating: 4.5, name: 'מגפיים שחורות',             brand: 'Dr. Martens',   category: 'womens-shoes',   price: 420, size: '39',    condition: 'good',            color: 'שחור',     description: 'מגפיים קלאסיות, נלבשו עונה אחת.',        imageUrl: 'https://picsum.photos/seed/sh3/400/600', location: 'ירושלים',    distance: 15.3 },
   // אביזרים
   { id: 'ac1', sellerId: 's17', sellerName: 'דבורה נ.',  sellerRating: 4.6, name: 'תיק עור שחור קטן',          brand: 'Guess',         category: 'accessories',    price: 280, size: 'אחיד',  condition: 'perfect',         color: 'שחור',     description: 'תיק עור קטן אלגנטי, ללא שריטות.',        imageUrl: 'https://picsum.photos/seed/ac1/400/600', location: 'רחובות',     distance: 4.7 },
   { id: 'ac2', sellerId: 's18', sellerName: 'אביגיל ר.', sellerRating: 4.9, name: 'שרשרת זהב עדינה',           brand: 'Tiffany & Co.', category: 'accessories',    price: 650, size: 'אחיד',  condition: 'new-with-tag',    color: 'זהב',      description: 'שרשרת זהב 14K, נקנתה ולא נלבשה.',        imageUrl: 'https://picsum.photos/seed/ac2/400/600', location: 'הרצליה',     distance: 8.2 },
@@ -227,14 +232,23 @@ export const AI_RESULTS_BY_CATEGORY: Record<Category, Omit<AiDraft, 'imageUri'>>
     description: 'גופייה בצבע כהה, מידה בינונית לפי מראה.',
     confidence: { name: 0.77, brand: 0.38, category: 0.89, condition: 0.73, color: 0.94 },
   },
-  'shoes': {
+  'mens-shoes': {
     name: 'נעלי ספורט',
     brand: 'Nike',
-    category: 'shoes',
+    category: 'mens-shoes',
     condition: 'good',
     color: 'לבן',
-    description: 'נעליים לבנות, מידת בינונית, שימוש מועט לפי בלאי הסוליה.',
+    description: 'נעלי ספורט לגברים, שימוש מועט לפי בלאי הסוליה.',
     confidence: { name: 0.85, brand: 0.83, category: 0.98, condition: 0.75, color: 0.96 },
+  },
+  'womens-shoes': {
+    name: 'נעלי עקב',
+    brand: 'Zara',
+    category: 'womens-shoes',
+    condition: 'new-without-tag',
+    color: 'שחור',
+    description: 'נעלי עקב לנשים, מצב מצוין.',
+    confidence: { name: 0.84, brand: 0.79, category: 0.97, condition: 0.78, color: 0.94 },
   },
   'accessories': {
     name: 'תיק עור',

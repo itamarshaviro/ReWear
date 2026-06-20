@@ -134,7 +134,8 @@ const CATEGORY_KEYWORDS: [string[], Category][] = [
   [['shirt', 't-shirt', 'tshirt', 'polo', 'jacket', 'hoodie', 'sweatshirt', 'sweater', 'coat', 'blazer', 'cardigan', 'jersey', 'vest'], 'mens-shirts'],
   [['dress', 'gown', 'skirt', 'romper', 'jumpsuit'], 'womens-dresses'],
   [['blouse', 'tank top', 'camisole', 'crop top', 'crop'], 'womens-tops'],
-  [['shoes', 'sneakers', 'boots', 'heels', 'sandals', 'loafers', 'trainers', 'footwear', 'slippers', 'flip flop'], 'shoes'],
+  [['heels', 'pump', 'stiletto', 'wedge', 'ballet flat', 'sandal'], 'womens-shoes'],
+  [['shoes', 'sneakers', 'boots', 'loafers', 'trainers', 'footwear', 'slippers', 'flip flop'], 'mens-shoes'],
   [['bag', 'purse', 'handbag', 'backpack', 'necklace', 'bracelet', 'watch', 'belt', 'scarf', 'hat', 'cap', 'socks', 'gloves', 'sunglasses'], 'accessories'],
 ];
 
@@ -206,7 +207,7 @@ export type RecognitionResult = {
 function buildResult(caption: string, brand?: string, color?: string, category?: Category, condition?: Condition, aiPrice?: number): RecognitionResult {
   const CATEGORY_HE: Partial<Record<Category, string>> = {
     'mens-pants': 'מכנסיים', 'mens-shirts': 'חולצה', 'womens-dresses': 'שמלה',
-    'womens-shirts': 'חולצה', 'womens-tops': 'גופייה', 'shoes': 'נעליים',
+    'womens-shirts': 'חולצה', 'womens-tops': 'גופייה', 'mens-shoes': 'נעליים', 'womens-shoes': 'נעליים',
     'accessories': 'אביזר',
   };
   const catName = category ? CATEGORY_HE[category] : undefined;
@@ -292,10 +293,11 @@ async function callVQA(base64: string, question: string): Promise<string> {
 const CATEGORY_EN: Partial<Record<Category, string>> = {
   'mens-shirts':    "men's shirt or jacket",
   'mens-pants':     "men's pants or jeans",
+  'mens-shoes':     "men's shoes or sneakers",
   'womens-shirts':  "women's shirt or jacket",
   'womens-dresses': 'dress or skirt',
   'womens-tops':    'top or camisole',
-  'shoes':          'shoes or sneakers',
+  'womens-shoes':   "women's shoes, heels, or sandals",
   'accessories':    'accessory',
 };
 
@@ -307,8 +309,9 @@ export type RecognitionHint = {
 // ── Gemini Vision ──────────────────────────────────────────────────────────────
 
 const VALID_CATEGORIES: Category[] = [
-  'mens-shirts', 'mens-pants', 'womens-dresses', 'womens-shirts',
-  'womens-tops', 'shoes', 'accessories',
+  'mens-shirts', 'mens-pants', 'mens-shoes',
+  'womens-dresses', 'womens-shirts', 'womens-tops', 'womens-shoes',
+  'accessories',
 ];
 const VALID_CONDITIONS: Condition[] = [
   'new-with-tag', 'new-without-tag', 'perfect', 'good', 'fair', 'for-parts',
@@ -359,7 +362,7 @@ Return ONLY a JSON object (no markdown, no explanation):
 {
   "brand": "brand name if ANY text/logo is visible — e.g. Rip Curl, Nike, Adidas, Zara, H&M, Levi's, Champion. null if truly invisible",
   "color": "main color in Hebrew, choose closest: שחור, לבן, אפור, כחול, נייבי, כחול בהיר, אדום, ירוק, זית, חום, ורוד, צהוב, כתום, סגול, בז', קרם, בורדו, טורקיז, כסף, זהב, צבעוני, חאקי",
-  "category": "exactly one of: mens-shirts, mens-pants, womens-dresses, womens-shirts, womens-tops, shoes, accessories",
+  "category": "exactly one of: mens-shirts, mens-pants, mens-shoes, womens-dresses, womens-shirts, womens-tops, womens-shoes, accessories",
   "condition": "exactly one of: new-with-tag, new-without-tag, perfect, good, fair, for-parts — based on visible wear, fading, stains, tags",
   "caption": "one sentence describing the item in English"
 }`;
@@ -433,7 +436,7 @@ Return ONLY valid JSON (no markdown):
 {
   "brand": "brand name if ANY text/logo is visible (e.g. Rip Curl, Nike, Zara, H&M, Adidas, Levi's, Champion) — null if truly invisible",
   "color": "main color in Hebrew, pick closest: שחור, לבן, אפור, כחול, נייבי, כחול בהיר, אדום, ירוק, זית, חום, ורוד, צהוב, כתום, סגול, בז', קרם, בורדו, טורקיז, זהב, כסף, צבעוני, חאקי",
-  "category": "one of: mens-shirts, mens-pants, womens-dresses, womens-shirts, womens-tops, shoes, accessories",
+  "category": "one of: mens-shirts, mens-pants, mens-shoes, womens-dresses, womens-shirts, womens-tops, womens-shoes, accessories",
   "condition": "one of: new-with-tag, new-without-tag, perfect, good, fair, for-parts — judge by visible wear, fading, stains, tags",
   "caption": "one sentence describing the item in English",
   "suggestedPrice": a fair secondhand resale price in Israeli shekels (NIS) as a number. Base it on: typical retail price for this brand × condition discount (new-with-tag=85%, new-without-tag=70%, perfect=55%, good=40%, fair=25%). Reference retail prices: Nike/Adidas shirt ≈ 200-300 NIS, Zara ≈ 150-250 NIS, H&M ≈ 80-150 NIS, Rip Curl/Billabong ≈ 200-350 NIS, luxury brands ≈ 800-3000 NIS. Return null if uncertain.

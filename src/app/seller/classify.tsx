@@ -20,7 +20,7 @@ const ITEM_OPTIONS: ItemOption[] = [
   { label: 'שמלה',        emoji: '👗', category: () => 'womens-dresses',                                genders: ['women'] },
   { label: 'חצאית',       emoji: '🩱', category: () => 'womens-dresses',                                genders: ['women'] },
   { label: 'גופייה / טופ',emoji: '🎽', category: () => 'womens-tops',                                  genders: ['women'] },
-  { label: 'נעליים',      emoji: '👟', category: () => 'shoes',                                         genders: ['men', 'women'] },
+  { label: 'נעליים',      emoji: '👟', category: g => g === 'men' ? 'mens-shoes' : 'womens-shoes',      genders: ['men', 'women'] },
   { label: 'אביזר',       emoji: '💍', category: () => 'accessories',                                   genders: ['men', 'women'] },
 ];
 
