@@ -115,7 +115,7 @@
 
 export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
       users: {
@@ -132,11 +132,33 @@ export interface Database {
           is_premium: boolean;
           created_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['users']['Row'], 'id' | 'created_at'> & {
+        Insert: {
           id?: string;
+          auth_id?: string | null;
+          first_name: string;
+          last_name: string;
+          email: string;
+          phone: string;
+          address?: string | null;
+          id_image_url?: string | null;
+          is_verified?: boolean;
+          is_premium?: boolean;
           created_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['users']['Insert']>;
+        Update: {
+          id?: string;
+          auth_id?: string | null;
+          first_name?: string;
+          last_name?: string;
+          email?: string;
+          phone?: string;
+          address?: string | null;
+          id_image_url?: string | null;
+          is_verified?: boolean;
+          is_premium?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
       };
       items: {
         Row: {
@@ -156,11 +178,41 @@ export interface Database {
           is_available: boolean;
           created_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['items']['Row'], 'id' | 'created_at'> & {
+        Insert: {
           id?: string;
+          seller_id: string;
+          seller_name: string;
+          name: string;
+          brand?: string | null;
+          category: string;
+          price: number;
+          size: string;
+          condition: string;
+          color?: string | null;
+          description?: string | null;
+          image_url?: string | null;
+          location?: string | null;
+          is_available?: boolean;
           created_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['items']['Insert']>;
+        Update: {
+          id?: string;
+          seller_id?: string;
+          seller_name?: string;
+          name?: string;
+          brand?: string | null;
+          category?: string;
+          price?: number;
+          size?: string;
+          condition?: string;
+          color?: string | null;
+          description?: string | null;
+          image_url?: string | null;
+          location?: string | null;
+          is_available?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
       };
       matches: {
         Row: {
@@ -172,11 +224,25 @@ export interface Database {
           status: 'pending' | 'accepted' | 'declined';
           created_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['matches']['Row'], 'id' | 'created_at'> & {
+        Insert: {
           id?: string;
+          item_id: string;
+          buyer_id: string;
+          seller_id: string;
+          buyer_name: string;
+          status?: 'pending' | 'accepted' | 'declined';
           created_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['matches']['Insert']>;
+        Update: {
+          id?: string;
+          item_id?: string;
+          buyer_id?: string;
+          seller_id?: string;
+          buyer_name?: string;
+          status?: 'pending' | 'accepted' | 'declined';
+          created_at?: string;
+        };
+        Relationships: [];
       };
       messages: {
         Row: {
@@ -187,11 +253,23 @@ export interface Database {
           is_read: boolean;
           created_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['messages']['Row'], 'id' | 'created_at'> & {
+        Insert: {
           id?: string;
+          match_id: string;
+          sender_id: string;
+          text: string;
+          is_read?: boolean;
           created_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['messages']['Insert']>;
+        Update: {
+          id?: string;
+          match_id?: string;
+          sender_id?: string;
+          text?: string;
+          is_read?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
       };
       ratings: {
         Row: {
@@ -203,12 +281,30 @@ export interface Database {
           role: 'buyer' | 'seller';
           created_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['ratings']['Row'], 'id' | 'created_at'> & {
+        Insert: {
           id?: string;
+          match_id: string;
+          reviewer_id: string;
+          score: number;
+          review: string;
+          role: 'buyer' | 'seller';
           created_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['ratings']['Insert']>;
+        Update: {
+          id?: string;
+          match_id?: string;
+          reviewer_id?: string;
+          score?: number;
+          review?: string;
+          role?: 'buyer' | 'seller';
+          created_at?: string;
+        };
+        Relationships: [];
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
-}
+};

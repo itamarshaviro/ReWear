@@ -167,6 +167,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   async function loadRequests() {
     if (!dbId) return;
+    type MatchRow = {
+      id: string; item_id: string; buyer_id: string; seller_id: string;
+      buyer_name: string; status: 'pending' | 'accepted' | 'declined'; created_at: string;
+      items: { name: string; image_url: string | null } | null;
+    };
     const { data } = await supabase
       .from('matches')
       .select('*, items(name, image_url)')
@@ -174,8 +179,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .order('created_at', { ascending: false });
 
     if (data) {
-      setRequests(data.map(row => {
-        const item = row.items as { name: string; image_url: string | null } | null;
+      const rows = data as unknown as MatchRow[];
+      setRequests(rows.map(row => {
+        const item = row.items;
         return {
           id: row.id,
           itemId: row.item_id,
@@ -191,12 +197,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   async function loadChats() {
     if (!dbId) return;
-    const { data: matches } = await supabase
+    type MatchWithItem = {
+      id: string; item_id: string; buyer_id: string; seller_id: string;
+      buyer_name: string; status: 'pending' | 'accepted' | 'declined'; created_at: string;
+      items: { name: string; image_url: string | null; seller_name: string } | null;
+    };
+    const { data: matchesRaw } = await supabase
       .from('matches')
       .select('*, items(name, image_url, seller_name)')
       .eq('status', 'accepted')
       .or(`seller_id.eq.${dbId},buyer_id.eq.${dbId}`)
       .order('created_at', { ascending: false });
+    const matches = matchesRaw as unknown as MatchWithItem[] | null;
 
     if (!matches || matches.length === 0) return;
 
@@ -219,7 +231,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     setChats(matches.map(m => {
-      const item = m.items as { name: string; image_url: string | null; seller_name: string } | null;
+      const item = m.items;
       const isSeller = m.seller_id === dbId;
       const otherPartyName = isSeller ? m.buyer_name : (item?.seller_name ?? 'מוכר');
       return {
