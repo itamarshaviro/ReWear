@@ -107,9 +107,9 @@ export const CATEGORY_INFO: Record<Category, { label: string; emoji: string }> =
   'mens-tops':      { label: 'גופיות גברים', emoji: '🎽' },
   'womens-tops':    { label: 'גופיות נשים',  emoji: '🎽' },
   'mens-shoes':     { label: 'נעלי גברים',   emoji: '👟' },
-  'womens-dresses': { label: 'שמלות נשים',   emoji: '👗' },
-  'accessories':    { label: 'אביזרים',       emoji: '👜' },
   'womens-shoes':   { label: 'נעלי נשים',    emoji: '👠' },
+  'accessories':    { label: 'אביזרים',       emoji: '👜' },
+  'womens-dresses': { label: 'שמלות נשים',   emoji: '👗' },
 };
 
 export const CATEGORIES = Object.entries(CATEGORY_INFO).map(([id, info]) => ({
