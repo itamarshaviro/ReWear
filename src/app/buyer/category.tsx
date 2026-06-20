@@ -84,6 +84,7 @@ const styles = StyleSheet.create({
   row: {
     gap: 14,
     justifyContent: 'space-between',
+    flexDirection: 'row-reverse',
   },
   card: {
     flex: 1,

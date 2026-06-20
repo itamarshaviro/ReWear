@@ -1,7 +1,9 @@
 export type Category =
   | 'mens-pants'
   | 'mens-shirts'
+  | 'mens-tops'
   | 'mens-shoes'
+  | 'womens-pants'
   | 'womens-dresses'
   | 'womens-shirts'
   | 'womens-tops'
@@ -96,15 +98,18 @@ export type AiDraft = {
 
 // ─── Category metadata ────────────────────────────────────────────────────────
 
+// Order matters: pairs render as (even index = right/men, odd index = left/women) with row-reverse
 export const CATEGORY_INFO: Record<Category, { label: string; emoji: string }> = {
   'mens-pants':     { label: 'מכנסי גברים',  emoji: '👖' },
+  'womens-pants':   { label: 'מכנסי נשים',   emoji: '👖' },
   'mens-shirts':    { label: 'חולצות גברים', emoji: '👔' },
+  'womens-shirts':  { label: 'חולצות נשים',  emoji: '👚' },
+  'mens-tops':      { label: 'גופיות גברים', emoji: '🎽' },
+  'womens-tops':    { label: 'גופיות נשים',  emoji: '🎽' },
   'mens-shoes':     { label: 'נעלי גברים',   emoji: '👟' },
   'womens-dresses': { label: 'שמלות נשים',   emoji: '👗' },
-  'womens-shirts':  { label: 'חולצות נשים',  emoji: '👚' },
-  'womens-tops':    { label: 'גופיות נשים',  emoji: '🎽' },
-  'womens-shoes':   { label: 'נעלי נשים',    emoji: '👠' },
   'accessories':    { label: 'אביזרים',       emoji: '👜' },
+  'womens-shoes':   { label: 'נעלי נשים',    emoji: '👠' },
 };
 
 export const CATEGORIES = Object.entries(CATEGORY_INFO).map(([id, info]) => ({
@@ -153,6 +158,12 @@ export function itemCoordinates(distance: number, seed: number) {
 // ─── Mock items ───────────────────────────────────────────────────────────────
 
 export const MOCK_ITEMS: ClothingItem[] = [
+  // מכנסי נשים
+  { id: 'wp1', sellerId: 's20', sellerName: 'שני א.',   sellerRating: 4.6, name: 'לגינס שחור',                  brand: 'Nike',          category: 'womens-pants',   price: 90,  size: 'S',     condition: 'good',            color: 'שחור',   description: 'לגינס ספורטיבי, כמעט חדש.',               imageUrl: 'https://picsum.photos/seed/wp1/400/600', location: 'תל אביב',    distance: 1.0 },
+  { id: 'wp2', sellerId: 's21', sellerName: 'רועי מ.',   sellerRating: 4.4, name: "ג'ינס סקיני כחול",            brand: 'Zara',          category: 'womens-pants',   price: 110, size: 'M',     condition: 'perfect',         color: 'כחול',   description: "ג'ינס צמוד, מצב מצוין.",                  imageUrl: 'https://picsum.photos/seed/wp2/400/600', location: 'גבעתיים',    distance: 2.8 },
+  // גופיות גברים
+  { id: 'mt1', sellerId: 's22', sellerName: 'דור כ.',    sellerRating: 4.3, name: 'גופיית ספורט שחורה',           brand: 'Nike',          category: 'mens-tops',      price: 65,  size: 'L',     condition: 'good',            color: 'שחור',   description: 'גופיית ריצה קלה, שימוש מועט.',            imageUrl: 'https://picsum.photos/seed/mt1/400/600', location: 'פתח תקווה', distance: 4.5 },
+  { id: 'mt2', sellerId: 's23', sellerName: 'בר ל.',     sellerRating: 4.7, name: 'גופיית כותנה לבנה',            brand: 'H&M',           category: 'mens-tops',      price: 40,  size: 'M',     condition: 'new-without-tag', color: 'לבן',    description: 'גופיית בסיסית, מעולם לא נלבשה.',          imageUrl: 'https://picsum.photos/seed/mt2/400/600', location: 'הרצליה',     distance: 3.7 },
   // מכנסי גברים
   { id: 'm1',  sellerId: 's1',  sellerName: 'דנה כ.',    sellerRating: 4.8, name: "ג'ינס ישר כחול",          brand: "Levi's",        category: 'mens-pants',     price: 180, size: '32',    condition: 'good',            color: 'כחול',     description: "ג'ינס ישר קלאסי, שימוש מועט.",          imageUrl: 'https://picsum.photos/seed/mp1/400/600', location: 'תל אביב',     distance: 1.2 },
   { id: 'm2',  sellerId: 's2',  sellerName: 'אורן מ.',   sellerRating: 4.5, name: "מכנסי ג'וגר אפור",         brand: 'Nike',          category: 'mens-pants',     price: 120, size: '34',    condition: 'perfect',         color: 'אפור',     description: "מכנסי ג'וגר נוחים, פעם נלבשו.",          imageUrl: 'https://picsum.photos/seed/mp2/400/600', location: 'ירושלים',    distance: 3.5 },
@@ -187,6 +198,24 @@ export const MOCK_ITEMS: ClothingItem[] = [
 // Only fields with confidence >= 0.70 are populated; lower = undefined (better blank than wrong)
 
 export const AI_RESULTS_BY_CATEGORY: Record<Category, Omit<AiDraft, 'imageUri'>> = {
+  'womens-pants': {
+    name: "ג'ינס נשים",
+    brand: undefined,
+    category: 'womens-pants',
+    condition: 'good',
+    color: 'כחול',
+    description: "ג'ינס לנשים, גזרה צמודה.",
+    confidence: { name: 0.82, brand: 0.40, category: 0.94, condition: 0.71, color: 0.90 },
+  },
+  'mens-tops': {
+    name: 'גופיית ספורט',
+    brand: undefined,
+    category: 'mens-tops',
+    condition: 'good',
+    color: 'שחור',
+    description: 'גופיית ספורט לגברים.',
+    confidence: { name: 0.80, brand: 0.38, category: 0.91, condition: 0.73, color: 0.92 },
+  },
   'mens-pants': {
     name: "ג'ינס ישר כחול",
     brand: "Levi's",

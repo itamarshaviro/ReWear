@@ -105,6 +105,7 @@ export default function UploadScreen() {
     if (hfResult && (hfResult.category || hfResult.brand)) {
       const CATEGORY_HE: Partial<Record<Category, string>> = {
         'mens-pants': 'מכנסיים', 'mens-shirts': 'חולצה', 'womens-dresses': 'שמלה',
+        'mens-tops': 'גופייה', 'womens-pants': 'מכנסיים',
         'womens-shirts': 'חולצה', 'womens-tops': 'גופייה', 'mens-shoes': 'נעליים', 'womens-shoes': 'נעליים',
         'accessories': 'אביזר',
       };
