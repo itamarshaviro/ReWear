@@ -56,9 +56,9 @@ export default function PreviewScreen() {
   const condLabel = draft.condition ? CONDITION_LABELS[draft.condition] : '';
   const condColor = draft.condition ? CONDITION_COLORS[draft.condition] : '#9CA3AF';
 
-  function publish() {
+  async function publish() {
     if (!draft) return;
-    addListing({
+    await addListing({
       name: draft.name ?? 'פריט',
       brand: draft.brand ?? '',
       category: draft.category ?? 'accessories',

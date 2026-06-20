@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/auth-context';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 const CODE_LENGTH = 6;
 
@@ -78,9 +79,11 @@ export default function VerifyScreen() {
               שלחנו קוד בן {CODE_LENGTH} ספרות ל-{'\n'}
               <Text style={styles.email}>{pendingEmail || 'האימייל שלך'}</Text>
             </Text>
-            <Text style={styles.demoNote}>
-              במצב דמו: הזן כל קוד בן 6 ספרות
-            </Text>
+            {!isSupabaseConfigured() && (
+              <Text style={styles.demoNote}>
+                מצב דמו: הזן כל קוד בן 6 ספרות
+              </Text>
+            )}
           </View>
 
           {/* OTP inputs */}

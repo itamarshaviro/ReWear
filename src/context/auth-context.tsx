@@ -11,7 +11,8 @@ export type BuyerPreferences = {
 };
 
 export type AuthUser = {
-  id: string;
+  id: string;        // auth.users UUID
+  dbId: string;      // users table UUID (used for all DB foreign keys)
   firstName: string;
   lastName: string;
   email: string;
@@ -19,6 +20,7 @@ export type AuthUser = {
   address: string;
   idImageUri: string | null;
   isVerified: boolean;
+  isPremium: boolean;
   preferences?: BuyerPreferences;
 };
 
@@ -47,8 +49,6 @@ type PendingUser = RegisterPayload & { idImageUri: string | null };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  // Start in loading state only when Supabase is configured, so we can
-  // check for an existing session before rendering the redirect in index.tsx
   const [isLoading, setIsLoading] = useState(isSupabaseConfigured());
   const [pending, setPending] = useState<PendingUser | null>(null);
 
@@ -58,7 +58,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
 
-    // Restore session on mount — handles magic link redirect and page refresh
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         handleAuthUser(session.user);
@@ -82,17 +81,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function handleAuthUser(authUser: User) {
     try {
-      // Try to load an existing profile from the users table
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase.from('users') as any)
+      const { data, error } = await supabase
+        .from('users')
         .select('*')
         .eq('auth_id', authUser.id)
         .single();
 
       if (data && !error) {
-        // Returning user — restore their profile and let index.tsx show home
         setUser({
-          id: data.auth_id,
+          id: authUser.id,
+          dbId: data.id,
           firstName: data.first_name,
           lastName: data.last_name,
           email: data.email,
@@ -100,19 +98,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           address: data.address ?? '',
           idImageUri: null,
           isVerified: data.is_verified ?? true,
+          isPremium: data.is_premium ?? false,
         });
+        setIsLoading(false);
         return;
       }
     } catch {
-      // profile not found — fall through
+      // profile not found — new user
     }
 
-    // New user: auth is done (magic link clicked) but profile not yet complete.
-    // If we have their registration data in memory, skip the verify screen.
     if (pending) {
       router.replace('/auth/id-upload');
     }
-
     setIsLoading(false);
   }
 
@@ -126,8 +123,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: data.email,
         options: {
           shouldCreateUser: true,
-          // On web, redirect back to the app root so the onAuthStateChange
-          // listener picks up the session automatically
           emailRedirectTo:
             typeof window !== 'undefined' ? window.location.origin : undefined,
         },
@@ -137,8 +132,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function verifyCode(code: string): Promise<boolean> {
     if (!pending) return false;
-    // Always accept any 6-digit code — this is demo mode.
-    // Real authentication (magic link) happens separately via onAuthStateChange.
+
+    if (isSupabaseConfigured()) {
+      const { error } = await supabase.auth.verifyOtp({
+        email: pending.email,
+        token: code,
+        type: 'email',
+      });
+      return !error;
+    }
+
+    // Demo mode: accept any 6-digit code
     return code.length === 6;
   }
 
@@ -149,8 +153,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function completeProfile(address: string) {
     if (!pending) return;
 
-    const newUser: AuthUser = {
+    if (isSupabaseConfigured()) {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        await supabase.from('users').upsert({
+          auth_id: authUser.id,
+          first_name: pending.firstName,
+          last_name: pending.lastName,
+          email: pending.email,
+          phone: pending.phone,
+          address,
+          is_verified: true,
+          is_premium: false,
+        });
+
+        // Read back the generated UUID
+        const { data: profile } = await supabase
+          .from('users')
+          .select('id')
+          .eq('auth_id', authUser.id)
+          .single();
+
+        setUser({
+          id: authUser.id,
+          dbId: profile?.id ?? authUser.id,
+          firstName: pending.firstName,
+          lastName: pending.lastName,
+          email: pending.email,
+          phone: pending.phone,
+          address,
+          idImageUri: pending.idImageUri,
+          isVerified: true,
+          isPremium: false,
+        });
+        setPending(null);
+        return;
+      }
+    }
+
+    // Local demo fallback
+    setUser({
       id: `user-${Date.now()}`,
+      dbId: `user-${Date.now()}`,
       firstName: pending.firstName,
       lastName: pending.lastName,
       email: pending.email,
@@ -158,25 +202,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       address,
       idImageUri: pending.idImageUri,
       isVerified: true,
-    };
-
-    if (isSupabaseConfigured()) {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (authUser) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase.from('users') as any).upsert({
-          auth_id: authUser.id,
-          first_name: newUser.firstName,
-          last_name: newUser.lastName,
-          email: newUser.email,
-          phone: newUser.phone,
-          address,
-          is_verified: true,
-        });
-      }
-    }
-
-    setUser(newUser);
+      isPremium: false,
+    });
     setPending(null);
   }
 
