@@ -134,6 +134,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!pending) return false;
 
     if (isSupabaseConfigured()) {
+      // When "Confirm email" is disabled in Supabase Dashboard, signInWithOtp
+      // creates a session immediately — no OTP token needed.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) return true;
+
+      // Fallback: verify OTP token when email confirmation is enabled
       const { error } = await supabase.auth.verifyOtp({
         email: pending.email,
         token: code,
