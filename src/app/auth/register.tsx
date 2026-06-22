@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -8,90 +9,136 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/auth-context';
 
 function Field({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  keyboardType = 'default',
-  autoCapitalize = 'sentences',
+  label, value, onChangeText, placeholder,
+  keyboardType = 'default', secureTextEntry = false,
+  optional = false, autoCapitalize = 'sentences',
+  rightElement,
 }: {
-  label: string;
-  value: string;
-  onChangeText: (t: string) => void;
-  placeholder: string;
-  keyboardType?: 'default' | 'email-address' | 'phone-pad';
+  label: string; value: string;
+  onChangeText: (t: string) => void; placeholder: string;
+  keyboardType?: 'default' | 'email-address' | 'phone-pad' | 'numeric';
+  secureTextEntry?: boolean; optional?: boolean;
   autoCapitalize?: 'none' | 'sentences' | 'words';
+  rightElement?: React.ReactNode;
 }) {
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
-        style={styles.input}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor="#9CA3AF"
-        keyboardType={keyboardType}
-        autoCapitalize={autoCapitalize}
-        textAlign="right"
-        autoCorrect={false}
-      />
+      <View style={styles.labelRow}>
+        <Text style={styles.label}>{label}</Text>
+        {optional && <Text style={styles.optional}>אופציונלי</Text>}
+      </View>
+      <View style={styles.inputRow}>
+        {rightElement}
+        <TextInput
+          style={[styles.input, rightElement ? { flex: 1 } : {}]}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor="#9CA3AF"
+          keyboardType={keyboardType}
+          secureTextEntry={secureTextEntry}
+          autoCapitalize={autoCapitalize}
+          autoCorrect={false}
+          textAlign="right"
+        />
+      </View>
     </View>
   );
 }
 
 export default function RegisterScreen() {
-  const { register } = useAuth();
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName]   = useState('');
-  const [email, setEmail]         = useState('');
-  const [phone, setPhone]         = useState('');
-  const [loading, setLoading]     = useState(false);
+  const { signUp } = useAuth();
 
-  async function handleNext() {
-    if (!firstName.trim() || !lastName.trim() || !email.trim() || !phone.trim()) {
-      Alert.alert('שדות חסרים', 'אנא מלא את כל השדות.');
-      return;
+  const [firstName, setFirstName] = useState('');
+  const [lastName,  setLastName]  = useState('');
+  const [email,     setEmail]     = useState('');
+  const [phone,     setPhone]     = useState('');
+  const [age,       setAge]       = useState('');
+  const [password,  setPassword]  = useState('');
+  const [confirm,   setConfirm]   = useState('');
+  const [street,    setStreet]    = useState('');
+  const [city,      setCity]      = useState('');
+  const [zip,       setZip]       = useState('');
+  const [showPass,  setShowPass]  = useState(false);
+  const [loading,   setLoading]   = useState(false);
+
+  async function handleRegister() {
+    if (!firstName.trim() || !lastName.trim()) {
+      Alert.alert('שם חסר', 'אנא הזן שם פרטי ושם משפחה.'); return;
     }
-    if (!email.includes('@')) {
-      Alert.alert('מייל לא תקין', 'אנא הזן כתובת מייל תקינה.');
-      return;
+    if (!email.trim() || !email.includes('@')) {
+      Alert.alert('מייל לא תקין', 'אנא הזן כתובת מייל תקינה.'); return;
     }
-    if (phone.length < 9) {
-      Alert.alert('טלפון לא תקין', 'אנא הזן מספר טלפון תקין.');
-      return;
+    if (!phone.trim() || phone.replace(/\D/g, '').length < 9) {
+      Alert.alert('טלפון לא תקין', 'אנא הזן מספר טלפון תקין.'); return;
+    }
+    if (age && (parseInt(age) < 13 || parseInt(age) > 120)) {
+      Alert.alert('גיל לא תקין', 'אנא הזן גיל בין 13 ל-120.'); return;
+    }
+    if (password.length < 8) {
+      Alert.alert('סיסמא חלשה', 'הסיסמא חייבת להכיל לפחות 8 תווים.'); return;
+    }
+    if (password !== confirm) {
+      Alert.alert('סיסמאות לא תואמות', 'הסיסמא ואישור הסיסמא שונים.'); return;
     }
 
     setLoading(true);
-    try {
-      await register({ firstName, lastName, email, phone });
-      router.push('/auth/verify');
-    } finally {
-      setLoading(false);
+    const result = await signUp({
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: email.trim().toLowerCase(),
+      password,
+      phone: phone.trim(),
+      age: age ? parseInt(age) : undefined,
+      street: street.trim() || undefined,
+      city: city.trim() || undefined,
+      zip: zip.trim() || undefined,
+    });
+    setLoading(false);
+
+    if (result === 'ok') {
+      router.replace('/');
+    } else if (result === 'needs-verify') {
+      router.replace('/auth/verify');
+    } else {
+      Alert.alert('שגיאה', result);
     }
   }
 
+  const eyeBtn = (
+    <TouchableOpacity
+      style={styles.eyeBtn}
+      onPress={() => setShowPass(p => !p)}
+    >
+      <Text style={styles.eyeIcon}>{showPass ? '🙈' : '👁️'}</Text>
+    </TouchableOpacity>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={styles.backText}>→</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>יצירת חשבון</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.hero}>
-            <Text style={styles.logo}>ReWear</Text>
-            <Text style={styles.title}>יצירת חשבון</Text>
-            <Text style={styles.sub}>הצטרף לקהילת הבגדים יד שנייה</Text>
-          </View>
 
-          <View style={styles.form}>
+          {/* Personal info */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>פרטים אישיים</Text>
             <View style={styles.nameRow}>
               <View style={{ flex: 1 }}>
                 <Field label="שם פרטי" value={firstName} onChangeText={setFirstName} placeholder="ישראל" autoCapitalize="words" />
@@ -100,29 +147,39 @@ export default function RegisterScreen() {
                 <Field label="שם משפחה" value={lastName} onChangeText={setLastName} placeholder="כהן" autoCapitalize="words" />
               </View>
             </View>
+            <Field label="טלפון" value={phone} onChangeText={setPhone} placeholder="050-1234567" keyboardType="phone-pad" />
+            <Field label="גיל" value={age} onChangeText={setAge} placeholder="25" keyboardType="numeric" optional />
+          </View>
 
+          {/* Account */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>פרטי חשבון</Text>
             <Field label="אימייל" value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" autoCapitalize="none" />
-            <Field label="טלפון" value={phone} onChangeText={setPhone} placeholder="050-1234567" keyboardType="phone-pad" autoCapitalize="none" />
+            <Field label="סיסמא" value={password} onChangeText={setPassword} placeholder="לפחות 8 תווים" secureTextEntry={!showPass} autoCapitalize="none" rightElement={eyeBtn} />
+            <Field label="אישור סיסמא" value={confirm} onChangeText={setConfirm} placeholder="הזן סיסמא שוב" secureTextEntry={!showPass} autoCapitalize="none" />
           </View>
 
-          <View style={styles.footer}>
-            <TouchableOpacity
-              style={[styles.btn, loading && styles.btnDisabled]}
-              onPress={handleNext}
-              disabled={loading}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.btnText}>{loading ? 'שולח קוד...' : 'המשך →'}</Text>
-            </TouchableOpacity>
-
-            <Text style={styles.hint}>
-              קוד אימות יישלח לאימייל שלך
-            </Text>
-
-            <TouchableOpacity onPress={() => router.replace('/auth/login')}>
-              <Text style={styles.skipText}>כבר יש לי חשבון — התחבר</Text>
-            </TouchableOpacity>
+          {/* Address */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>כתובת <Text style={styles.sectionOptional}>(אופציונלי)</Text></Text>
+            <Field label="רחוב ומספר" value={street} onChangeText={setStreet} placeholder="הרצל 12" optional />
+            <Field label="עיר" value={city} onChangeText={setCity} placeholder="תל אביב" optional />
+            <Field label="מיקוד" value={zip} onChangeText={setZip} placeholder="6100000" keyboardType="numeric" optional />
           </View>
+
+          <TouchableOpacity
+            style={[styles.btn, loading && styles.btnDisabled]}
+            onPress={handleRegister}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.btnText}>{loading ? 'יוצר חשבון...' : 'צור חשבון 🎉'}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => router.replace('/auth')} style={styles.loginLink}>
+            <Text style={styles.loginLinkText}>כבר יש לי חשבון — התחבר</Text>
+          </TouchableOpacity>
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -131,40 +188,49 @@ export default function RegisterScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F7FF' },
-  content: { padding: 24, gap: 32 },
-  hero: { alignItems: 'center', gap: 8, paddingTop: 16 },
-  logo: { fontSize: 36, fontWeight: '900', color: '#6366F1', letterSpacing: -1 },
-  title: { fontSize: 24, fontWeight: '800', color: '#111827' },
-  sub: { fontSize: 14, color: '#6B7280', textAlign: 'center' },
-  form: { gap: 16 },
-  nameRow: { flexDirection: 'row-reverse', gap: 12 },
-  field: { gap: 6 },
-  label: { fontSize: 13, fontWeight: '700', color: '#374151', textAlign: 'right' },
-  input: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#111827',
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 12,
   },
-  footer: { gap: 14, alignItems: 'center' },
+  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', transform: [{ scaleX: -1 }] },
+  backText: { fontSize: 22, color: '#6366F1', fontWeight: '700' },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: '#111827' },
+  content: { padding: 20, gap: 24, paddingBottom: 40 },
+  section: {
+    backgroundColor: '#fff', borderRadius: 20,
+    padding: 18, gap: 14,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+  },
+  sectionTitle: { fontSize: 15, fontWeight: '800', color: '#111827', textAlign: 'right' },
+  sectionOptional: { fontSize: 12, color: '#9CA3AF', fontWeight: '400' },
+  nameRow: { flexDirection: 'row-reverse', gap: 10 },
+  field: { gap: 6 },
+  labelRow: { flexDirection: 'row-reverse', justifyContent: 'space-between' },
+  label: { fontSize: 13, fontWeight: '700', color: '#374151', textAlign: 'right' },
+  optional: { fontSize: 11, color: '#9CA3AF' },
+  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  input: {
+    backgroundColor: '#F8F7FF', borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 13,
+    fontSize: 15, color: '#111827',
+    borderWidth: 1.5, borderColor: '#E5E7EB',
+  },
+  eyeBtn: {
+    width: 46, height: 46,
+    backgroundColor: '#F8F7FF', borderRadius: 12,
+    borderWidth: 1.5, borderColor: '#E5E7EB',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  eyeIcon: { fontSize: 18 },
   btn: {
-    backgroundColor: '#6366F1',
-    borderRadius: 16,
-    paddingVertical: 18,
-    alignItems: 'center',
-    alignSelf: 'stretch',
-    shadowColor: '#6366F1',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.28,
-    shadowRadius: 16,
-    elevation: 8,
+    backgroundColor: '#6366F1', borderRadius: 16,
+    paddingVertical: 18, alignItems: 'center',
+    shadowColor: '#6366F1', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28, shadowRadius: 16, elevation: 8,
   },
   btnDisabled: { backgroundColor: '#A5B4FC', shadowOpacity: 0.1 },
   btnText: { fontSize: 17, fontWeight: '800', color: '#fff' },
-  hint: { fontSize: 13, color: '#9CA3AF' },
-  skipText: { fontSize: 14, color: '#6366F1', fontWeight: '600' },
+  loginLink: { alignItems: 'center', paddingVertical: 4 },
+  loginLinkText: { fontSize: 14, color: '#6366F1', fontWeight: '600' },
 });

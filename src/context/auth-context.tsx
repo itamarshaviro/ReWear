@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { router } from 'expo-router';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 
@@ -11,52 +10,47 @@ export type BuyerPreferences = {
 };
 
 export type AuthUser = {
-  id: string;        // auth.users UUID
-  dbId: string;      // users table UUID (used for all DB foreign keys)
+  id: string;       // Supabase auth UUID
+  dbId: string;     // users table UUID
   firstName: string;
   lastName: string;
   email: string;
   phone: string;
   age: number | null;
   address: string;
-  idImageUri: string | null;
   isVerified: boolean;
   isPremium: boolean;
   preferences?: BuyerPreferences;
 };
 
-type RegisterPayload = {
+export type SignUpPayload = {
   firstName: string;
   lastName: string;
   email: string;
+  password: string;
   phone: string;
+  age?: number;
+  street?: string;
+  city?: string;
+  zip?: string;
 };
 
 type AuthContextType = {
   user: AuthUser | null;
   isLoading: boolean;
-  pendingEmail: string;
-  register: (data: RegisterPayload) => Promise<void>;
-  login: (email: string) => Promise<void>;
-  verifyCode: (code: string) => Promise<boolean>;
-  setIdImage: (uri: string) => void;
-  completeProfile: (address: string, age?: number) => void;
-  updatePreferences: (prefs: BuyerPreferences) => void;
+  signIn: (email: string, password: string) => Promise<string | null>;
+  signUp: (payload: SignUpPayload) => Promise<'ok' | 'needs-verify' | string>;
   logout: () => void;
+  updatePreferences: (prefs: BuyerPreferences) => void;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-type PendingUser = RegisterPayload & { idImageUri: string | null };
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(isSupabaseConfigured());
-  const [pending, setPending] = useState<PendingUser | null>(null);
 
-  const pendingEmail = pending?.email ?? '';
-
-  // ── Session detection ─────────────────────────────────────────────────────
+  // ── Session detection ────────────────────────────────────────────────────
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
 
@@ -99,165 +93,98 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           phone: data.phone ?? '',
           age: data.age ?? null,
           address: data.address ?? '',
-          idImageUri: null,
           isVerified: data.is_verified ?? true,
           isPremium: data.is_premium ?? false,
         });
-        setIsLoading(false);
-        return;
       }
     } catch {
-      // profile not found — new user
-    }
-
-    if (pending) {
-      router.replace('/auth/id-upload');
+      // profile not created yet — signUp will handle it
     }
     setIsLoading(false);
   }
 
-  // ── Registration flow ─────────────────────────────────────────────────────
-
-  async function register(data: RegisterPayload) {
-    setPending({ ...data, idImageUri: null });
-
-    if (isSupabaseConfigured()) {
-      await supabase.auth.signInWithOtp({
-        email: data.email,
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo:
-            typeof window !== 'undefined' ? window.location.origin : undefined,
-        },
+  // ── Sign in ──────────────────────────────────────────────────────────────
+  async function signIn(email: string, password: string): Promise<string | null> {
+    if (!isSupabaseConfigured()) {
+      setUser({
+        id: 'demo', dbId: 'demo',
+        firstName: 'משתמש', lastName: 'דמו', email,
+        phone: '', age: null, address: '',
+        isVerified: true, isPremium: false,
       });
+      return null;
     }
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      if (error.message.includes('Invalid login credentials')) return 'מייל או סיסמא שגויים';
+      if (error.message.includes('Email not confirmed')) return 'יש לאמת את האימייל תחילה';
+      return error.message;
+    }
+    // onAuthStateChange → handleAuthUser will update user state
+    return null;
   }
 
-  async function login(email: string) {
-    // Store minimal pending so verifyCode can run
-    setPending({ firstName: '', lastName: '', email, phone: '', idImageUri: null });
+  // ── Sign up ──────────────────────────────────────────────────────────────
+  async function signUp(payload: SignUpPayload): Promise<'ok' | 'needs-verify' | string> {
+    const address = [payload.street, payload.city, payload.zip].filter(Boolean).join(', ');
 
-    if (isSupabaseConfigured()) {
-      await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: false,
-          emailRedirectTo:
-            typeof window !== 'undefined' ? window.location.origin : undefined,
-        },
+    if (!isSupabaseConfigured()) {
+      setUser({
+        id: `demo-${Date.now()}`, dbId: `demo-${Date.now()}`,
+        firstName: payload.firstName, lastName: payload.lastName,
+        email: payload.email, phone: payload.phone,
+        age: payload.age ?? null, address,
+        isVerified: true, isPremium: false,
       });
-    }
-  }
-
-  async function verifyCode(code: string): Promise<boolean> {
-    if (!pending) return false;
-
-    if (isSupabaseConfigured()) {
-      // When "Confirm email" is disabled in Supabase Dashboard, signInWithOtp
-      // creates a session immediately — no OTP token needed.
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) return true;
-
-      // Fallback: verify OTP token when email confirmation is enabled
-      const { error } = await supabase.auth.verifyOtp({
-        email: pending.email,
-        token: code,
-        type: 'email',
-      });
-      return !error;
+      return 'ok';
     }
 
-    // Demo mode: accept any 6-digit code
-    return code.length === 6;
-  }
-
-  function setIdImage(uri: string) {
-    setPending(prev => prev ? { ...prev, idImageUri: uri } : prev);
-  }
-
-  async function completeProfile(address: string, age?: number) {
-    if (!pending) return;
-
-    if (isSupabaseConfigured()) {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (authUser) {
-        await supabase.from('users').upsert({
-          auth_id: authUser.id,
-          first_name: pending.firstName,
-          last_name: pending.lastName,
-          email: pending.email,
-          phone: pending.phone,
-          age: age ?? null,
-          address,
-          is_verified: true,
-          is_premium: false,
-        });
-
-        // Read back the generated UUID
-        const { data: profile } = await supabase
-          .from('users')
-          .select('id')
-          .eq('auth_id', authUser.id)
-          .single();
-
-        setUser({
-          id: authUser.id,
-          dbId: profile?.id ?? authUser.id,
-          firstName: pending.firstName,
-          lastName: pending.lastName,
-          email: pending.email,
-          phone: pending.phone,
-          age: age ?? null,
-          address,
-          idImageUri: pending.idImageUri,
-          isVerified: true,
-          isPremium: false,
-        });
-        setPending(null);
-        return;
-      }
-    }
-
-    // Local demo fallback
-    setUser({
-      id: `user-${Date.now()}`,
-      dbId: `user-${Date.now()}`,
-      firstName: pending.firstName,
-      lastName: pending.lastName,
-      email: pending.email,
-      phone: pending.phone,
-      age: age ?? null,
-      address,
-      idImageUri: pending.idImageUri,
-      isVerified: true,
-      isPremium: false,
+    const { data, error } = await supabase.auth.signUp({
+      email: payload.email,
+      password: payload.password,
     });
-    setPending(null);
+
+    if (error) {
+      if (error.message.includes('already registered')) return 'כתובת המייל כבר רשומה במערכת';
+      return error.message;
+    }
+
+    const authUser = data.user;
+    if (!authUser) return 'שגיאה ביצירת חשבון';
+
+    // Save profile
+    await supabase.from('users').upsert({
+      auth_id: authUser.id,
+      first_name: payload.firstName,
+      last_name: payload.lastName,
+      email: payload.email,
+      phone: payload.phone,
+      age: payload.age ?? null,
+      address: address || null,
+      is_verified: true,
+      is_premium: false,
+    });
+
+    // If no session → email confirmation required
+    if (!data.session) return 'needs-verify';
+
+    // Session exists → auto signed in, handleAuthUser fires via onAuthStateChange
+    return 'ok';
+  }
+
+  // ── Other ────────────────────────────────────────────────────────────────
+  function logout() {
+    setUser(null);
+    if (isSupabaseConfigured()) supabase.auth.signOut();
   }
 
   function updatePreferences(prefs: BuyerPreferences) {
     setUser(prev => prev ? { ...prev, preferences: prefs } : prev);
   }
 
-  function logout() {
-    setUser(null);
-    setPending(null);
-    if (isSupabaseConfigured()) supabase.auth.signOut();
-  }
-
   return (
-    <AuthContext.Provider value={{
-      user,
-      isLoading,
-      pendingEmail,
-      register,
-      login,
-      verifyCode,
-      setIdImage,
-      completeProfile,
-      updatePreferences,
-      logout,
-    }}>
+    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, logout, updatePreferences }}>
       {children}
     </AuthContext.Provider>
   );
