@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -33,11 +32,15 @@ function Field({
   optional = false, autoCapitalize = 'sentences',
   showToggle = false, onToggle,
 }: FieldProps) {
+  const required = !optional;
   return (
     <View style={styles.field}>
       <View style={styles.labelRow}>
         {optional && <Text style={styles.optional}>אופציונלי</Text>}
-        <Text style={styles.label}>{label}</Text>
+        <Text style={styles.label}>
+          {label}
+          {required && <Text style={styles.asterisk}> *</Text>}
+        </Text>
       </View>
       <View style={styles.inputBox}>
         <TextInput
@@ -283,7 +286,9 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     fontSize: 15,
     color: '#111827',
+    textAlign: 'right',
   },
+  asterisk: { color: '#EF4444', fontWeight: '800' },
   eyeBtn: {
     paddingHorizontal: 14,
     paddingVertical: 13,
