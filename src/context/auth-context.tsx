@@ -146,7 +146,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (error) {
-      if (error.message.includes('already registered')) return 'כתובת המייל כבר רשומה במערכת';
+      if (error.message.includes('already registered') || error.message.includes('already exists'))
+        return 'כתובת המייל כבר רשומה. נסה להתחבר במקום זאת.';
       return error.message;
     }
 

@@ -77,25 +77,27 @@ export default function RegisterScreen() {
   const [zip,       setZip]       = useState('');
   const [showPass,  setShowPass]  = useState(false);
   const [loading,   setLoading]   = useState(false);
+  const [error,     setError]     = useState('');
 
   async function handleRegister() {
+    setError('');
     if (!firstName.trim() || !lastName.trim()) {
-      Alert.alert('שם חסר', 'אנא הזן שם פרטי ושם משפחה.'); return;
+      setError('אנא הזן שם פרטי ושם משפחה.'); return;
     }
     if (!email.trim() || !email.includes('@')) {
-      Alert.alert('מייל לא תקין', 'אנא הזן כתובת מייל תקינה.'); return;
+      setError('אנא הזן כתובת מייל תקינה.'); return;
     }
     if (!phone.trim() || phone.replace(/\D/g, '').length < 9) {
-      Alert.alert('טלפון לא תקין', 'אנא הזן מספר טלפון תקין.'); return;
+      setError('אנא הזן מספר טלפון תקין.'); return;
     }
     if (age && (parseInt(age) < 13 || parseInt(age) > 120)) {
-      Alert.alert('גיל לא תקין', 'אנא הזן גיל בין 13 ל-120.'); return;
+      setError('אנא הזן גיל בין 13 ל-120.'); return;
     }
     if (password.length < 8) {
-      Alert.alert('סיסמא חלשה', 'הסיסמא חייבת להכיל לפחות 8 תווים.'); return;
+      setError('הסיסמא חייבת להכיל לפחות 8 תווים.'); return;
     }
     if (password !== confirm) {
-      Alert.alert('סיסמאות לא תואמות', 'הסיסמא ואישור הסיסמא שונים.'); return;
+      setError('הסיסמא ואישור הסיסמא שונים.'); return;
     }
 
     setLoading(true);
@@ -117,7 +119,7 @@ export default function RegisterScreen() {
     } else if (result === 'needs-verify') {
       router.replace('/auth/verify');
     } else {
-      Alert.alert('שגיאה', result as string);
+      setError(result as string);
     }
   }
 
@@ -194,6 +196,12 @@ export default function RegisterScreen() {
             <Field label="עיר" value={city} onChangeText={setCity} placeholder="תל אביב" optional />
             <Field label="מיקוד" value={zip} onChangeText={setZip} placeholder="6100000" keyboardType="numeric" optional />
           </View>
+
+          {error ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>⚠️ {error}</Text>
+            </View>
+          ) : null}
 
           <TouchableOpacity
             style={[styles.btn, loading && styles.btnDisabled]}
@@ -282,4 +290,9 @@ const styles = StyleSheet.create({
   btnText: { fontSize: 17, fontWeight: '800', color: '#fff' },
   loginLink: { alignItems: 'center', paddingVertical: 4 },
   loginLinkText: { fontSize: 14, color: '#6366F1', fontWeight: '600' },
+  errorBox: {
+    backgroundColor: '#FEF2F2', borderRadius: 12,
+    padding: 14, borderWidth: 1, borderColor: '#FECACA',
+  },
+  errorText: { fontSize: 14, color: '#DC2626', textAlign: 'right', fontWeight: '600' },
 });
