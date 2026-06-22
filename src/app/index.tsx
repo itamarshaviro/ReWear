@@ -23,7 +23,7 @@ export default function HomeScreen() {
   }
 
   if (!user) {
-    return <Redirect href="/auth/register" />;
+    return <Redirect href="/auth" />;
   }
 
   // Count items matching buyer's favorite brands
