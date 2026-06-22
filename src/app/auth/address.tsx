@@ -14,13 +14,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/auth-context';
 
-function Field({ label, value, onChangeText, placeholder, keyboardType = 'default' }: {
-  label: string; value: string; onChangeText: (t: string) => void;
-  placeholder: string; keyboardType?: 'default' | 'numeric';
+function Field({ label, value, onChangeText, placeholder, keyboardType = 'default', optional = false }: {
+  label: string;
+  value: string;
+  onChangeText: (t: string) => void;
+  placeholder: string;
+  keyboardType?: 'default' | 'numeric' | 'phone-pad';
+  optional?: boolean;
 }) {
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <View style={styles.labelRow}>
+        <Text style={styles.label}>{label}</Text>
+        {optional && <Text style={styles.optional}>אופציונלי</Text>}
+      </View>
       <TextInput
         style={styles.input}
         value={value}
@@ -37,25 +44,30 @@ function Field({ label, value, onChangeText, placeholder, keyboardType = 'defaul
 
 export default function AddressScreen() {
   const { completeProfile, user } = useAuth();
-  const [street, setStreet]   = useState('');
-  const [city, setCity]       = useState('');
-  const [zip, setZip]         = useState('');
+  const [street, setStreet] = useState('');
+  const [city, setCity]     = useState('');
+  const [zip, setZip]       = useState('');
+  const [age, setAge]       = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Navigate once React commits the user state update
   useEffect(() => {
     if (user) router.replace('/');
   }, [user]);
 
   async function handleFinish() {
     if (!street.trim() || !city.trim()) {
-      Alert.alert('שדות חסרים', 'אנא מלא לפחות רחוב ועיר.');
+      Alert.alert('שדות חסרים', 'אנא מלא רחוב ועיר.');
       return;
     }
+    if (age && (parseInt(age) < 13 || parseInt(age) > 120)) {
+      Alert.alert('גיל לא תקין', 'אנא הזן גיל בין 13 ל-120.');
+      return;
+    }
+
     setLoading(true);
     const fullAddress = [street.trim(), city.trim(), zip.trim()].filter(Boolean).join(', ');
-    await completeProfile(fullAddress);
-    // navigation handled by the useEffect above
+    const ageNum = age ? parseInt(age) : undefined;
+    await completeProfile(fullAddress, ageNum);
   }
 
   return (
@@ -65,7 +77,7 @@ export default function AddressScreen() {
           <Text style={styles.backText}>→</Text>
         </TouchableOpacity>
         <View style={styles.stepRow}>
-          {[1, 2, 3, 4].map(s => (
+          {[1, 2, 3].map(s => (
             <View key={s} style={[styles.step, styles.stepDone]} />
           ))}
         </View>
@@ -74,19 +86,44 @@ export default function AddressScreen() {
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+
           <View style={styles.hero}>
-            <Text style={styles.icon}>📍</Text>
-            <Text style={styles.title}>כתובת מגורים</Text>
+            <Text style={styles.icon}>📋</Text>
+            <Text style={styles.title}>פרטים אישיים</Text>
             <Text style={styles.sub}>
-              משמשת לחישוב מרחק מהפריטים.{'\n'}
-              לא מוצגת למוכרים.
+              הכתובת משמשת לחישוב מרחק בלבד{'\n'}ולא מוצגת למשתמשים אחרים
             </Text>
           </View>
 
           <View style={styles.form}>
-            <Field label="רחוב ומספר" value={street} onChangeText={setStreet} placeholder="הרצל 12" />
-            <Field label="עיר" value={city} onChangeText={setCity} placeholder="תל אביב" />
-            <Field label="מיקוד (אופציונלי)" value={zip} onChangeText={setZip} placeholder="6100000" keyboardType="numeric" />
+            <Field
+              label="גיל"
+              value={age}
+              onChangeText={setAge}
+              placeholder="25"
+              keyboardType="numeric"
+              optional
+            />
+            <Field
+              label="רחוב ומספר"
+              value={street}
+              onChangeText={setStreet}
+              placeholder="הרצל 12"
+            />
+            <Field
+              label="עיר"
+              value={city}
+              onChangeText={setCity}
+              placeholder="תל אביב"
+            />
+            <Field
+              label="מיקוד"
+              value={zip}
+              onChangeText={setZip}
+              placeholder="6100000"
+              keyboardType="numeric"
+              optional
+            />
           </View>
 
           <View style={styles.footer}>
@@ -99,10 +136,11 @@ export default function AddressScreen() {
               <Text style={styles.btnText}>{loading ? 'יוצר חשבון...' : 'סיים הרשמה 🎉'}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => completeProfile('')}>
+            <TouchableOpacity onPress={() => completeProfile('', undefined)}>
               <Text style={styles.skipText}>דלג בינתיים</Text>
             </TouchableOpacity>
           </View>
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -125,9 +163,11 @@ const styles = StyleSheet.create({
   icon: { fontSize: 52 },
   title: { fontSize: 22, fontWeight: '800', color: '#111827' },
   sub: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 20 },
-  form: { gap: 16 },
+  form: { gap: 14 },
   field: { gap: 6 },
+  labelRow: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' },
   label: { fontSize: 13, fontWeight: '700', color: '#374151', textAlign: 'right' },
+  optional: { fontSize: 11, color: '#9CA3AF' },
   input: {
     backgroundColor: '#fff', borderRadius: 14,
     paddingHorizontal: 16, paddingVertical: 14,

@@ -65,7 +65,7 @@ export default function VerifyScreen() {
       return;
     }
 
-    router.push('/auth/id-upload');
+    router.push('/auth/address');
   }
 
   return (

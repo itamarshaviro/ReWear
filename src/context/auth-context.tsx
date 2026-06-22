@@ -17,6 +17,7 @@ export type AuthUser = {
   lastName: string;
   email: string;
   phone: string;
+  age: number | null;
   address: string;
   idImageUri: string | null;
   isVerified: boolean;
@@ -39,7 +40,7 @@ type AuthContextType = {
   login: (email: string) => Promise<void>;
   verifyCode: (code: string) => Promise<boolean>;
   setIdImage: (uri: string) => void;
-  completeProfile: (address: string) => void;
+  completeProfile: (address: string, age?: number) => void;
   updatePreferences: (prefs: BuyerPreferences) => void;
   logout: () => void;
 };
@@ -96,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           lastName: data.last_name,
           email: data.email,
           phone: data.phone ?? '',
+          age: data.age ?? null,
           address: data.address ?? '',
           idImageUri: null,
           isVerified: data.is_verified ?? true,
@@ -173,7 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPending(prev => prev ? { ...prev, idImageUri: uri } : prev);
   }
 
-  async function completeProfile(address: string) {
+  async function completeProfile(address: string, age?: number) {
     if (!pending) return;
 
     if (isSupabaseConfigured()) {
@@ -185,6 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           last_name: pending.lastName,
           email: pending.email,
           phone: pending.phone,
+          age: age ?? null,
           address,
           is_verified: true,
           is_premium: false,
@@ -204,6 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           lastName: pending.lastName,
           email: pending.email,
           phone: pending.phone,
+          age: age ?? null,
           address,
           idImageUri: pending.idImageUri,
           isVerified: true,
@@ -222,6 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       lastName: pending.lastName,
       email: pending.email,
       phone: pending.phone,
+      age: age ?? null,
       address,
       idImageUri: pending.idImageUri,
       isVerified: true,

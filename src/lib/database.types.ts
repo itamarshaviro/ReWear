@@ -126,6 +126,7 @@ export type Database = {
           last_name: string;
           email: string;
           phone: string;
+          age: number | null;
           address: string | null;
           id_image_url: string | null;
           is_verified: boolean;
@@ -139,6 +140,7 @@ export type Database = {
           last_name: string;
           email: string;
           phone: string;
+          age?: number | null;
           address?: string | null;
           id_image_url?: string | null;
           is_verified?: boolean;
@@ -152,6 +154,7 @@ export type Database = {
           last_name?: string;
           email?: string;
           phone?: string;
+          age?: number | null;
           address?: string | null;
           id_image_url?: string | null;
           is_verified?: boolean;
