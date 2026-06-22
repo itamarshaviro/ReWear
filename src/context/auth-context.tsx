@@ -122,7 +122,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error.message.includes('Email not confirmed')) return 'יש לאמת את האימייל תחילה';
       return error.message;
     }
-    // onAuthStateChange → handleAuthUser will update user state
+    // Set loading so index.tsx shows spinner instead of redirecting back to /auth
+    // before onAuthStateChange → handleAuthUser finishes setting the user
+    setIsLoading(true);
     return null;
   }
 

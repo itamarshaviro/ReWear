@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -13,9 +13,14 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/context/auth-context';
 
 export default function LoginScreen() {
-  const { signIn } = useAuth();
+  const { signIn, user } = useAuth();
   const params = useLocalSearchParams<{ registered?: string }>();
   const justRegistered = params.registered === '1';
+
+  // Navigate to home once the user is set after successful sign-in
+  useEffect(() => {
+    if (user) router.replace('/');
+  }, [user]);
 
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
@@ -33,9 +38,8 @@ export default function LoginScreen() {
     setLoading(false);
     if (err) {
       setError(err);
-    } else {
-      router.replace('/');
     }
+    // Navigation handled by useEffect above when user is set
   }
 
   return (
