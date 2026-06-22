@@ -78,13 +78,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function handleAuthUser(authUser: User) {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('users')
         .select('*')
         .eq('auth_id', authUser.id)
         .single();
 
-      if (data && !error) {
+      if (data) {
         setUser({
           id: authUser.id,
           dbId: data.id,
@@ -97,9 +97,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isVerified: data.is_verified ?? true,
           isPremium: data.is_premium ?? false,
         });
+      } else {
+        // Profile row missing — still allow login with auth data
+        const meta = authUser.user_metadata ?? {};
+        setUser({
+          id: authUser.id,
+          dbId: '',
+          firstName: (meta.first_name as string) ?? authUser.email?.split('@')[0] ?? 'משתמש',
+          lastName: (meta.last_name as string) ?? '',
+          email: authUser.email ?? '',
+          phone: (meta.phone as string) ?? '',
+          age: null,
+          address: '',
+          isVerified: true,
+          isPremium: false,
+        });
       }
     } catch {
-      // profile not created yet — signUp will handle it
+      // network error — leave user null, isLoading will unblock
     }
     setIsLoading(false);
   }
@@ -157,8 +172,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const authUser = data.user;
     if (!authUser) return 'שגיאה ביצירת חשבון';
 
-    // Save profile and get back the generated UUID
-    const { data: profile } = await supabase
+    // Save profile — age column omitted until the ALTER TABLE migration runs
+    const { error: upsertError } = await supabase
       .from('users')
       .upsert({
         auth_id: authUser.id,
@@ -166,13 +181,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         last_name: payload.lastName,
         email: payload.email,
         phone: payload.phone,
-        age: payload.age ?? null,
         address: address || null,
         is_verified: true,
         is_premium: false,
-      })
-      .select('id')
-      .single();
+      });
+
+    if (upsertError) {
+      await supabase.auth.signOut();
+      return 'שגיאה בשמירת הפרטים: ' + upsertError.message;
+    }
 
     // If no session → email confirmation required (happens when "Confirm email" is ON)
     if (!data.session) return 'needs-verify';
