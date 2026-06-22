@@ -90,6 +90,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadChats();
   }, [dbId]);
 
+  // ── Realtime: new items ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!configured) return;
+
+    const channel = supabase
+      .channel('items:public')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'items' },
+        () => { loadItems(); }
+      )
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'items' },
+        () => { loadItems(); }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Realtime: new messages ────────────────────────────────────────────────
   useEffect(() => {
     if (!configured || !dbId) return;
