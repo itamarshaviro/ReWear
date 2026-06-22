@@ -10,6 +10,8 @@ import {
   View,
   Alert,
 } from 'react-native';
+
+const PET_OPTIONS = ['🐶 כלב', '🐱 חתול', '🐹 שרקן', '🐰 ארנב', '🐦 ציפור', '🐠 דג', '🦎 זוחל', 'אחר'];
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/auth-context';
@@ -54,6 +56,7 @@ export default function RegisterScreen() {
   const [email, setEmail]         = useState('');
   const [phone, setPhone]         = useState('');
   const [loading, setLoading]     = useState(false);
+  const [favPet, setFavPet]       = useState<string | null>(null);
 
   async function handleNext() {
     if (!firstName.trim() || !lastName.trim() || !email.trim() || !phone.trim()) {
@@ -103,6 +106,22 @@ export default function RegisterScreen() {
 
             <Field label="אימייל" value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" autoCapitalize="none" />
             <Field label="טלפון" value={phone} onChangeText={setPhone} placeholder="050-1234567" keyboardType="phone-pad" autoCapitalize="none" />
+
+            <View style={styles.field}>
+              <Text style={styles.label}>חיה אהובה <Text style={styles.optional}>(אופציונלי)</Text></Text>
+              <View style={styles.petGrid}>
+                {PET_OPTIONS.map((pet) => (
+                  <TouchableOpacity
+                    key={pet}
+                    style={[styles.petChip, favPet === pet && styles.petChipSelected]}
+                    onPress={() => setFavPet(favPet === pet ? null : pet)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.petChipText, favPet === pet && styles.petChipTextSelected]}>{pet}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
           </View>
 
           <View style={styles.footer}>
@@ -167,4 +186,17 @@ const styles = StyleSheet.create({
   btnText: { fontSize: 17, fontWeight: '800', color: '#fff' },
   hint: { fontSize: 13, color: '#9CA3AF' },
   skipText: { fontSize: 14, color: '#6366F1', fontWeight: '600' },
+  optional: { fontSize: 12, color: '#9CA3AF', fontWeight: '400' },
+  petGrid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
+  petChip: {
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+  },
+  petChipSelected: { borderColor: '#6366F1', backgroundColor: '#EEF2FF' },
+  petChipText: { fontSize: 14, color: '#6B7280' },
+  petChipTextSelected: { color: '#6366F1', fontWeight: '700' },
 });
