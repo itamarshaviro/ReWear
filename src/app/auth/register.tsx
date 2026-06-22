@@ -50,6 +50,12 @@ function Field({
           secureTextEntry={secureTextEntry}
           autoCapitalize={autoCapitalize}
           autoCorrect={false}
+          autoComplete={
+            showToggle ? 'new-password'
+            : keyboardType === 'email-address' ? 'email'
+            : keyboardType === 'phone-pad' ? 'tel'
+            : 'off'
+          }
           textAlign="right"
         />
         {showToggle && (
@@ -99,6 +105,12 @@ export default function RegisterScreen() {
     if (password !== confirm) {
       setError('הסיסמא ואישור הסיסמא שונים.'); return;
     }
+    if (!street.trim()) {
+      setError('אנא הזן כתובת (רחוב ומספר).'); return;
+    }
+    if (!city.trim()) {
+      setError('אנא הזן עיר.'); return;
+    }
 
     setLoading(true);
     const result = await signUp({
@@ -115,7 +127,7 @@ export default function RegisterScreen() {
     setLoading(false);
 
     if (result === 'ok') {
-      router.replace('/');
+      router.replace({ pathname: '/auth', params: { registered: '1' } });
     } else if (result === 'needs-verify') {
       router.replace('/auth/verify');
     } else {
@@ -189,11 +201,9 @@ export default function RegisterScreen() {
 
           {/* Address */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              כתובת{'  '}<Text style={styles.sectionOptional}>(אופציונלי)</Text>
-            </Text>
-            <Field label="רחוב ומספר" value={street} onChangeText={setStreet} placeholder="הרצל 12" optional />
-            <Field label="עיר" value={city} onChangeText={setCity} placeholder="תל אביב" optional />
+            <Text style={styles.sectionTitle}>כתובת</Text>
+            <Field label="רחוב ומספר" value={street} onChangeText={setStreet} placeholder="הרצל 12" />
+            <Field label="עיר" value={city} onChangeText={setCity} placeholder="תל אביב" />
             <Field label="מיקוד" value={zip} onChangeText={setZip} placeholder="6100000" keyboardType="numeric" optional />
           </View>
 

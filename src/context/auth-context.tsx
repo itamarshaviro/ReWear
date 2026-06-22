@@ -174,22 +174,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // If no session → email confirmation required (happens when "Confirm email" is ON)
     if (!data.session) return 'needs-verify';
 
-    // Set user directly to avoid race condition with onAuthStateChange:
-    // onAuthStateChange fires before the upsert above completes, so handleAuthUser
-    // wouldn't find the profile yet. Setting state here guarantees the user lands
-    // on the home screen without a redirect loop.
-    setUser({
-      id: authUser.id,
-      dbId: profile?.id ?? authUser.id,
-      firstName: payload.firstName,
-      lastName: payload.lastName,
-      email: payload.email,
-      phone: payload.phone,
-      age: payload.age ?? null,
-      address,
-      isVerified: true,
-      isPremium: false,
-    });
+    // Sign out immediately so the user must log in manually.
+    // This also avoids a race condition where onAuthStateChange fires before
+    // the upsert above completes and handleAuthUser finds no profile.
+    await supabase.auth.signOut();
     return 'ok';
   }
 
