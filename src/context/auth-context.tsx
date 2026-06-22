@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { router } from 'expo-router';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 
@@ -11,54 +10,50 @@ export type BuyerPreferences = {
 };
 
 export type AuthUser = {
-  id: string;
+  id: string;       // Supabase auth UUID
+  dbId: string;     // users table UUID
   firstName: string;
   lastName: string;
   email: string;
   phone: string;
+  age: number | null;
   address: string;
-  idImageUri: string | null;
   isVerified: boolean;
+  isPremium: boolean;
   preferences?: BuyerPreferences;
 };
 
-type RegisterPayload = {
+export type SignUpPayload = {
   firstName: string;
   lastName: string;
   email: string;
+  password: string;
   phone: string;
+  age?: number;
+  street?: string;
+  city?: string;
+  zip?: string;
 };
 
 type AuthContextType = {
   user: AuthUser | null;
   isLoading: boolean;
-  pendingEmail: string;
-  register: (data: RegisterPayload) => Promise<void>;
-  verifyCode: (code: string) => Promise<boolean>;
-  setIdImage: (uri: string) => void;
-  completeProfile: (address: string) => void;
-  updatePreferences: (prefs: BuyerPreferences) => void;
+  signIn: (email: string, password: string) => Promise<string | null>;
+  signUp: (payload: SignUpPayload) => Promise<'ok' | 'needs-verify' | string>;
   logout: () => void;
+  updatePreferences: (prefs: BuyerPreferences) => void;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-type PendingUser = RegisterPayload & { idImageUri: string | null };
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  // Start in loading state only when Supabase is configured, so we can
-  // check for an existing session before rendering the redirect in index.tsx
   const [isLoading, setIsLoading] = useState(isSupabaseConfigured());
-  const [pending, setPending] = useState<PendingUser | null>(null);
 
-  const pendingEmail = pending?.email ?? '';
-
-  // ── Session detection ─────────────────────────────────────────────────────
+  // ── Session detection ────────────────────────────────────────────────────
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
 
-    // Restore session on mount — handles magic link redirect and page refresh
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         handleAuthUser(session.user);
@@ -81,127 +76,143 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function handleAuthUser(authUser: User) {
+    setIsLoading(true);
     try {
-      // Try to load an existing profile from the users table
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase.from('users') as any)
+      const { data } = await supabase
+        .from('users')
         .select('*')
         .eq('auth_id', authUser.id)
         .single();
 
-      if (data && !error) {
-        // Returning user — restore their profile and let index.tsx show home
+      if (data) {
         setUser({
-          id: data.auth_id,
+          id: authUser.id,
+          dbId: data.id,
           firstName: data.first_name,
           lastName: data.last_name,
           email: data.email,
           phone: data.phone ?? '',
+          age: data.age ?? null,
           address: data.address ?? '',
-          idImageUri: null,
           isVerified: data.is_verified ?? true,
+          isPremium: data.is_premium ?? false,
         });
-        return;
+      } else {
+        // Profile row missing — still allow login with auth data
+        const meta = authUser.user_metadata ?? {};
+        setUser({
+          id: authUser.id,
+          dbId: '',
+          firstName: (meta.first_name as string) ?? authUser.email?.split('@')[0] ?? 'משתמש',
+          lastName: (meta.last_name as string) ?? '',
+          email: authUser.email ?? '',
+          phone: (meta.phone as string) ?? '',
+          age: null,
+          address: '',
+          isVerified: true,
+          isPremium: false,
+        });
       }
     } catch {
-      // profile not found — fall through
+      // network error — leave user null, isLoading will unblock
     }
-
-    // New user: auth is done (magic link clicked) but profile not yet complete.
-    // If we have their registration data in memory, skip the verify screen.
-    if (pending) {
-      router.replace('/auth/id-upload');
-    }
-
     setIsLoading(false);
   }
 
-  // ── Registration flow ─────────────────────────────────────────────────────
-
-  async function register(data: RegisterPayload) {
-    setPending({ ...data, idImageUri: null });
-
-    if (isSupabaseConfigured()) {
-      await supabase.auth.signInWithOtp({
-        email: data.email,
-        options: {
-          shouldCreateUser: true,
-          // On web, redirect back to the app root so the onAuthStateChange
-          // listener picks up the session automatically
-          emailRedirectTo:
-            typeof window !== 'undefined' ? window.location.origin : undefined,
-        },
+  // ── Sign in ──────────────────────────────────────────────────────────────
+  async function signIn(email: string, password: string): Promise<string | null> {
+    if (!isSupabaseConfigured()) {
+      setUser({
+        id: 'demo', dbId: 'demo',
+        firstName: 'משתמש', lastName: 'דמו', email,
+        phone: '', age: null, address: '',
+        isVerified: true, isPremium: false,
       });
-    }
-  }
-
-  async function verifyCode(code: string): Promise<boolean> {
-    if (!pending) return false;
-    // Always accept any 6-digit code — this is demo mode.
-    // Real authentication (magic link) happens separately via onAuthStateChange.
-    return code.length === 6;
-  }
-
-  function setIdImage(uri: string) {
-    setPending(prev => prev ? { ...prev, idImageUri: uri } : prev);
-  }
-
-  async function completeProfile(address: string) {
-    if (!pending) return;
-
-    const newUser: AuthUser = {
-      id: `user-${Date.now()}`,
-      firstName: pending.firstName,
-      lastName: pending.lastName,
-      email: pending.email,
-      phone: pending.phone,
-      address,
-      idImageUri: pending.idImageUri,
-      isVerified: true,
-    };
-
-    if (isSupabaseConfigured()) {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (authUser) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase.from('users') as any).upsert({
-          auth_id: authUser.id,
-          first_name: newUser.firstName,
-          last_name: newUser.lastName,
-          email: newUser.email,
-          phone: newUser.phone,
-          address,
-          is_verified: true,
-        });
-      }
+      return null;
     }
 
-    setUser(newUser);
-    setPending(null);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      if (error.message.includes('Invalid login credentials')) return 'מייל או סיסמא שגויים';
+      if (error.message.includes('Email not confirmed')) return 'יש לאמת את האימייל תחילה';
+      return error.message;
+    }
+    // Set loading so index.tsx shows spinner instead of redirecting back to /auth
+    // before onAuthStateChange → handleAuthUser finishes setting the user
+    setIsLoading(true);
+    return null;
+  }
+
+  // ── Sign up ──────────────────────────────────────────────────────────────
+  async function signUp(payload: SignUpPayload): Promise<'ok' | 'needs-verify' | string> {
+    const address = [payload.street, payload.city, payload.zip].filter(Boolean).join(', ');
+
+    if (!isSupabaseConfigured()) {
+      setUser({
+        id: `demo-${Date.now()}`, dbId: `demo-${Date.now()}`,
+        firstName: payload.firstName, lastName: payload.lastName,
+        email: payload.email, phone: payload.phone,
+        age: payload.age ?? null, address,
+        isVerified: true, isPremium: false,
+      });
+      return 'ok';
+    }
+
+    const { data, error } = await supabase.auth.signUp({
+      email: payload.email,
+      password: payload.password,
+    });
+
+    if (error) {
+      if (error.message.includes('already registered') || error.message.includes('already exists'))
+        return 'כתובת המייל כבר רשומה. נסה להתחבר במקום זאת.';
+      return error.message;
+    }
+
+    const authUser = data.user;
+    if (!authUser) return 'שגיאה ביצירת חשבון';
+
+    // Save profile — age column omitted until the ALTER TABLE migration runs
+    const { error: upsertError } = await supabase
+      .from('users')
+      .upsert({
+        auth_id: authUser.id,
+        first_name: payload.firstName,
+        last_name: payload.lastName,
+        email: payload.email,
+        phone: payload.phone,
+        address: address || null,
+        is_verified: true,
+        is_premium: false,
+      });
+
+    if (upsertError) {
+      await supabase.auth.signOut();
+      return 'שגיאה בשמירת הפרטים: ' + upsertError.message;
+    }
+
+    // If no session → email confirmation required (happens when "Confirm email" is ON)
+    if (!data.session) return 'needs-verify';
+
+    // Sign out immediately so the user must log in manually.
+    // This also avoids a race condition where onAuthStateChange fires before
+    // the upsert above completes and handleAuthUser finds no profile.
+    await supabase.auth.signOut();
+    return 'ok';
+  }
+
+  // ── Other ────────────────────────────────────────────────────────────────
+  function logout() {
+    setUser(null);
+    if (isSupabaseConfigured()) supabase.auth.signOut();
   }
 
   function updatePreferences(prefs: BuyerPreferences) {
     setUser(prev => prev ? { ...prev, preferences: prefs } : prev);
   }
 
-  function logout() {
-    setUser(null);
-    setPending(null);
-    if (isSupabaseConfigured()) supabase.auth.signOut();
-  }
-
   return (
-    <AuthContext.Provider value={{
-      user,
-      isLoading,
-      pendingEmail,
-      register,
-      verifyCode,
-      setIdImage,
-      completeProfile,
-      updatePreferences,
-      logout,
-    }}>
+    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, logout, updatePreferences }}>
       {children}
     </AuthContext.Provider>
   );

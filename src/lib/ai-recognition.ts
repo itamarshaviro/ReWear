@@ -1,8 +1,9 @@
 import type { Category, Condition } from '@/data/mock';
 
-const HF_TOKEN     = process.env.EXPO_PUBLIC_HUGGINGFACE_TOKEN ?? '';
-const GEMINI_KEY   = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
-const GEMINI_MODEL = 'gemini-1.5-flash';
+const HF_TOKEN      = process.env.EXPO_PUBLIC_HUGGINGFACE_TOKEN ?? '';
+const GEMINI_KEY    = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
+const OPENAI_KEY    = process.env.EXPO_PUBLIC_OPENAI_API_KEY ?? '';
+const GEMINI_MODEL  = 'gemini-1.5-flash';
 const CAPTION_MODEL = 'Salesforce/blip-image-captioning-base';
 const VQA_MODEL     = 'Salesforce/blip-vqa-base';
 
@@ -129,11 +130,14 @@ export function suggestPrice(brand: string | undefined, condition: Condition = '
 // ── Category keywords ──────────────────────────────────────────────────────────
 
 const CATEGORY_KEYWORDS: [string[], Category][] = [
-  [['jeans', 'pants', 'trousers', 'chinos', 'shorts', 'jogger', 'denim', 'sweatpants', 'leggings'], 'mens-pants'],
+  [['leggings', 'skirt'], 'womens-pants'],
+  [['jeans', 'pants', 'trousers', 'chinos', 'shorts', 'jogger', 'denim', 'sweatpants'], 'mens-pants'],
   [['shirt', 't-shirt', 'tshirt', 'polo', 'jacket', 'hoodie', 'sweatshirt', 'sweater', 'coat', 'blazer', 'cardigan', 'jersey', 'vest'], 'mens-shirts'],
-  [['dress', 'gown', 'skirt', 'romper', 'jumpsuit'], 'womens-dresses'],
-  [['blouse', 'tank top', 'camisole', 'crop top', 'crop'], 'womens-tops'],
-  [['shoes', 'sneakers', 'boots', 'heels', 'sandals', 'loafers', 'trainers', 'footwear', 'slippers', 'flip flop'], 'shoes'],
+  [['tank top', 'singlet', 'muscle'], 'mens-tops'],
+  [['dress', 'gown', 'romper', 'jumpsuit'], 'womens-dresses'],
+  [['blouse', 'camisole', 'crop top', 'crop'], 'womens-tops'],
+  [['heels', 'pump', 'stiletto', 'wedge', 'ballet flat', 'sandal'], 'womens-shoes'],
+  [['shoes', 'sneakers', 'boots', 'loafers', 'trainers', 'footwear', 'slippers', 'flip flop'], 'mens-shoes'],
   [['bag', 'purse', 'handbag', 'backpack', 'necklace', 'bracelet', 'watch', 'belt', 'scarf', 'hat', 'cap', 'socks', 'gloves', 'sunglasses'], 'accessories'],
 ];
 
@@ -202,17 +206,18 @@ export type RecognitionResult = {
   };
 };
 
-function buildResult(caption: string, brand?: string, color?: string, category?: Category, condition?: Condition): RecognitionResult {
+function buildResult(caption: string, brand?: string, color?: string, category?: Category, condition?: Condition, aiPrice?: number): RecognitionResult {
   const CATEGORY_HE: Partial<Record<Category, string>> = {
     'mens-pants': 'מכנסיים', 'mens-shirts': 'חולצה', 'womens-dresses': 'שמלה',
-    'womens-shirts': 'חולצה', 'womens-tops': 'גופייה', 'shoes': 'נעליים',
+    'mens-tops': 'גופייה', 'womens-pants': 'מכנסיים',
+    'womens-shirts': 'חולצה', 'womens-tops': 'גופייה', 'mens-shoes': 'נעליים', 'womens-shoes': 'נעליים',
     'accessories': 'אביזר',
   };
   const catName = category ? CATEGORY_HE[category] : undefined;
   const name = catName
     ? `${brand ? brand + ' ' : ''}${catName}${color ? ' ' + color : ''}`
     : undefined;
-  const price = suggestPrice(brand, condition ?? 'good');
+  const price = aiPrice ?? suggestPrice(brand, condition ?? 'good');
 
   return {
     caption,
@@ -262,6 +267,17 @@ async function callCaption(blob: Blob): Promise<string> {
   return data[0]?.generated_text ?? '';
 }
 
+async function callOCR(blob: Blob): Promise<string> {
+  if (!HF_TOKEN) return '';
+  const res = await fetch(
+    'https://api-inference.huggingface.co/models/microsoft/trocr-base-printed',
+    { method: 'POST', headers: { 'Content-Type': 'application/octet-stream', ...hfHeaders() }, body: blob }
+  );
+  if (!res.ok) return '';
+  const data = await res.json() as { generated_text?: string }[];
+  return data[0]?.generated_text ?? '';
+}
+
 async function callVQA(base64: string, question: string): Promise<string> {
   const res = await fetch(
     `https://api-inference.huggingface.co/models/${VQA_MODEL}`,
@@ -278,12 +294,15 @@ async function callVQA(base64: string, question: string): Promise<string> {
 
 // English labels for category hints in VQA prompts
 const CATEGORY_EN: Partial<Record<Category, string>> = {
-  'mens-shirts':    "men's shirt or jacket",
   'mens-pants':     "men's pants or jeans",
-  'womens-shirts':  "women's shirt or jacket",
+  'mens-shirts':    "men's shirt or jacket",
+  'mens-tops':      "men's tank top or muscle shirt",
+  'mens-shoes':     "men's shoes or sneakers",
+  'womens-pants':   "women's pants, jeans, or leggings",
   'womens-dresses': 'dress or skirt',
-  'womens-tops':    'top or camisole',
-  'shoes':          'shoes or sneakers',
+  'womens-shirts':  "women's shirt or jacket",
+  'womens-tops':    "women's top, camisole, or crop top",
+  'womens-shoes':   "women's shoes, heels, or sandals",
   'accessories':    'accessory',
 };
 
@@ -295,29 +314,39 @@ export type RecognitionHint = {
 // ── Gemini Vision ──────────────────────────────────────────────────────────────
 
 const VALID_CATEGORIES: Category[] = [
-  'mens-shirts', 'mens-pants', 'womens-dresses', 'womens-shirts',
-  'womens-tops', 'shoes', 'accessories',
+  'mens-pants', 'mens-shirts', 'mens-tops', 'mens-shoes',
+  'womens-pants', 'womens-dresses', 'womens-shirts', 'womens-tops', 'womens-shoes',
+  'accessories',
 ];
 const VALID_CONDITIONS: Condition[] = [
   'new-with-tag', 'new-without-tag', 'perfect', 'good', 'fair', 'for-parts',
 ];
 
 async function callGeminiVision(base64: string, mimeType: string, prompt: string): Promise<string> {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [
-          { inline_data: { mime_type: mimeType, data: base64 } },
-          { text: prompt },
-        ]}],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 512 },
-      }),
-    }
-  );
-  if (!res.ok) return '';
+  // AQ. keys are OAuth tokens → use Bearer auth; AIza keys are API keys → use ?key=
+  // AQ. keys = OAuth tokens (Bearer); AIza keys = static API keys (?key=)
+  const isOAuth = GEMINI_KEY.startsWith('AQ.');
+  const url = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent${isOAuth ? '' : `?key=${GEMINI_KEY}`}`;
+  const authHeader: Record<string, string> = isOAuth
+    ? { Authorization: `Bearer ${GEMINI_KEY}` }
+    : {};
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeader },
+    body: JSON.stringify({
+      contents: [{ parts: [
+        { inline_data: { mime_type: mimeType, data: base64 } },
+        { text: prompt },
+      ]}],
+      generationConfig: { temperature: 0.1, maxOutputTokens: 512 },
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as { error?: { code?: number; message?: string } };
+    console.error('[Gemini]', res.status, err?.error?.message?.slice(0, 100));
+    return '';
+  }
   const data = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
@@ -338,7 +367,7 @@ Return ONLY a JSON object (no markdown, no explanation):
 {
   "brand": "brand name if ANY text/logo is visible — e.g. Rip Curl, Nike, Adidas, Zara, H&M, Levi's, Champion. null if truly invisible",
   "color": "main color in Hebrew, choose closest: שחור, לבן, אפור, כחול, נייבי, כחול בהיר, אדום, ירוק, זית, חום, ורוד, צהוב, כתום, סגול, בז', קרם, בורדו, טורקיז, כסף, זהב, צבעוני, חאקי",
-  "category": "exactly one of: mens-shirts, mens-pants, womens-dresses, womens-shirts, womens-tops, shoes, accessories",
+  "category": "exactly one of: mens-pants, mens-shirts, mens-tops, mens-shoes, womens-pants, womens-dresses, womens-shirts, womens-tops, womens-shoes, accessories",
   "condition": "exactly one of: new-with-tag, new-without-tag, perfect, good, fair, for-parts — based on visible wear, fading, stains, tags",
   "caption": "one sentence describing the item in English"
 }`;
@@ -375,6 +404,85 @@ Return ONLY a JSON object (no markdown, no explanation):
 
 export function isGeminiConfigured(): boolean { return GEMINI_KEY !== ''; }
 
+// ── OpenAI GPT-4o-mini Vision ──────────────────────────────────────────────────
+
+async function callOpenAIVision(base64: string, mimeType: string, prompt: string): Promise<string> {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_KEY}` },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: [
+        { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}`, detail: 'high' } },
+        { type: 'text', text: prompt },
+      ]}],
+      max_tokens: 400,
+      temperature: 0.1,
+    }),
+  });
+  if (!res.ok) return '';
+  const data = await res.json() as { choices?: { message?: { content?: string } }[] };
+  return data.choices?.[0]?.message?.content ?? '';
+}
+
+async function recognizeWithOpenAI(
+  blob: Blob, base64: string, hint?: RecognitionHint
+): Promise<RecognitionResult | null> {
+  const mimeType = blob.type || 'image/jpeg';
+  const categoryHint = hint?.category
+    ? `The user indicated this is: ${CATEGORY_EN[hint.category] ?? hint.category}.`
+    : '';
+
+  const prompt = `You are analyzing a secondhand clothing photo for a resale marketplace app in Israel. ${categoryHint}
+
+Look carefully — read ANY text or logo visible on the clothing to identify the brand.
+
+Return ONLY valid JSON (no markdown):
+{
+  "brand": "brand name if ANY text/logo is visible (e.g. Rip Curl, Nike, Zara, H&M, Adidas, Levi's, Champion) — null if truly invisible",
+  "color": "main color in Hebrew, pick closest: שחור, לבן, אפור, כחול, נייבי, כחול בהיר, אדום, ירוק, זית, חום, ורוד, צהוב, כתום, סגול, בז', קרם, בורדו, טורקיז, זהב, כסף, צבעוני, חאקי",
+  "category": "one of: mens-pants, mens-shirts, mens-tops, mens-shoes, womens-pants, womens-dresses, womens-shirts, womens-tops, womens-shoes, accessories",
+  "condition": "one of: new-with-tag, new-without-tag, perfect, good, fair, for-parts — judge by visible wear, fading, stains, tags",
+  "caption": "one sentence describing the item in English",
+  "suggestedPrice": a fair secondhand resale price in Israeli shekels (NIS) as a number. Base it on: typical retail price for this brand × condition discount (new-with-tag=85%, new-without-tag=70%, perfect=55%, good=40%, fair=25%). Reference retail prices: Nike/Adidas shirt ≈ 200-300 NIS, Zara ≈ 150-250 NIS, H&M ≈ 80-150 NIS, Rip Curl/Billabong ≈ 200-350 NIS, luxury brands ≈ 800-3000 NIS. Return null if uncertain.
+}`;
+
+  const text = await callOpenAIVision(base64, mimeType, prompt);
+  if (!text) return null;
+
+  try {
+    const match = text.match(/\{[\s\S]*?\}/);
+    if (!match) return null;
+    const g = JSON.parse(match[0]) as {
+      brand?: string | null;
+      color?: string | null;
+      category?: string | null;
+      condition?: string | null;
+      caption?: string | null;
+      suggestedPrice?: number | null;
+    };
+
+    const clean = (v: string | null | undefined) =>
+      v && v.toLowerCase() !== 'null' && v.toLowerCase() !== 'none' && v.trim() !== '' ? v : undefined;
+
+    const brand     = clean(g.brand) ? parseBrand(clean(g.brand)!) ?? clean(g.brand) : undefined;
+    const color     = clean(g.color);
+    const category  = VALID_CATEGORIES.includes(g.category as Category)
+                        ? (g.category as Category) : hint?.category;
+    const condition = VALID_CONDITIONS.includes(g.condition as Condition)
+                        ? (g.condition as Condition) : undefined;
+    const aiPrice   = typeof g.suggestedPrice === 'number' && g.suggestedPrice > 0
+                        ? Math.round(g.suggestedPrice / 5) * 5
+                        : undefined;
+
+    return buildResult(clean(g.caption) ?? '', brand, color, category, condition, aiPrice);
+  } catch {
+    return null;
+  }
+}
+
+export function isOpenAIConfigured(): boolean { return OPENAI_KEY !== ''; }
+
 // ── Main export ────────────────────────────────────────────────────────────────
 
 export async function recognizeFromUrl(
@@ -387,33 +495,39 @@ export async function recognizeFromUrl(
     const blob = await imgRes.blob();
     const base64 = await blobToBase64(blob);
 
-    // ── Gemini path (preferred — reads text/logos accurately) ──────────────────
+    // ── OpenAI path (best quality — reads text/logos accurately) ─────────────────
+    if (OPENAI_KEY) {
+      const result = await recognizeWithOpenAI(blob, base64, hint);
+      if (result) return result;
+    }
+
+    // ── Gemini path (fallback if no OpenAI key) ────────────────────────────────
     if (GEMINI_KEY) {
       const result = await recognizeWithGemini(blob, base64, hint);
       if (result) return result;
-      // fall through to BLIP if Gemini fails
     }
 
-    // ── BLIP fallback (no Gemini key configured) ───────────────────────────────
+    // ── BLIP fallback (no vision AI key configured) ────────────────────────────
     const itemDesc = hint?.category ? CATEGORY_EN[hint.category] ?? 'clothing item' : 'clothing item';
     const brandQ1 = `What clothing brand is shown on this ${itemDesc}? For example: Nike, Adidas, Zara, H&M, Levi's, Puma, Ralph Lauren.`;
     const brandQ2 = `Is there a brand logo or label visible? What brand is it?`;
 
-    const [caption, brandAnswer1, brandAnswer2, typeAnswer, colorAnswer, conditionAnswer] = await Promise.all([
+    const [caption, brandAnswer1, brandAnswer2, typeAnswer, colorAnswer, conditionAnswer, ocrText] = await Promise.all([
       callCaption(blob),
       callVQA(base64, brandQ1),
       callVQA(base64, brandQ2),
       hint?.category ? Promise.resolve('') : callVQA(base64, 'What type of clothing item is this?'),
       callVQA(base64, 'What is the main color of this clothing item?'),
       callVQA(base64, 'Does this clothing look new, gently used, or worn out?'),
+      callOCR(blob),
     ]);
 
     if (!caption && !brandAnswer1 && !typeAnswer && !colorAnswer) return null;
 
     const allText = [caption, brandAnswer1, brandAnswer2, typeAnswer].join(' ');
 
-    // Brand: try both VQA answers then fall back to caption
-    const brand = parseBrand(brandAnswer1) ?? parseBrand(brandAnswer2) ?? parseBrand(caption);
+    // Brand: OCR reads printed text directly → best for "RIP CURL", "NIKE" etc. on garments
+    const brand = parseBrand(ocrText) ?? parseBrand(brandAnswer1) ?? parseBrand(brandAnswer2) ?? parseBrand(caption);
     // Color: direct VQA answer first, then caption
     const color = parseColor(colorAnswer) ?? parseColor(caption);
     // Use pre-selected category from classify screen if available
@@ -439,8 +553,7 @@ export type QualityResult = {
 };
 
 export async function checkImageQuality(imageUri: string): Promise<QualityResult> {
-  // No HF token → demo mode, always pass
-  if (!HF_TOKEN) return { isGood: true };
+  if (!OPENAI_KEY && !HF_TOKEN) return { isGood: true };
 
   try {
     const imgRes = await fetch(imageUri);
@@ -448,37 +561,60 @@ export async function checkImageQuality(imageUri: string): Promise<QualityResult
     const blob = await imgRes.blob();
     const base64 = await blobToBase64(blob);
 
-    // Caption tells us what's actually in the image
+    // ── OpenAI quality check (accurate, understands context) ──────────────────
+    if (OPENAI_KEY) {
+      const prompt = `You are reviewing a photo submitted to a secondhand clothing marketplace.
+
+Return ONLY valid JSON:
+{
+  "isGood": true or false,
+  "reason": "reason in Hebrew if not good, null if good"
+}
+
+Reject (isGood: false) if ANY of these:
+- No clothing item visible (e.g. just a room, face, food, random object)
+- Clothing is cut off / not fully visible
+- Photo is very blurry or too dark to see details
+- Extreme close-up showing only a small detail (logo, button, seam)
+
+Accept (isGood: true) if:
+- A clothing item is clearly visible and reasonably complete
+- Good enough lighting to see the item`;
+
+      const text = await callOpenAIVision(base64, blob.type || 'image/jpeg', prompt);
+      if (text) {
+        try {
+          const match = text.match(/\{[\s\S]*?\}/);
+          if (match) {
+            const r = JSON.parse(match[0]) as { isGood?: boolean; reason?: string | null };
+            if (r.isGood === false) return { isGood: false, reason: r.reason ?? 'התמונה לא מתאימה לפרסום' };
+            if (r.isGood === true)  return { isGood: true };
+          }
+        } catch { /* fall through */ }
+      }
+    }
+
+    // ── BLIP fallback quality check ────────────────────────────────────────────
     const [caption, fullVisibleAnswer, suitableAnswer] = await Promise.all([
       callCaption(blob),
       callVQA(base64, 'Can you see the entire clothing item completely from top to bottom without anything being cut off?'),
       callVQA(base64, 'Is this photo well-lit and clear enough to use as an online store product photo?'),
     ]);
 
-    // Caption must mention clothing
     const CLOTHING_WORDS = [
       'shirt', 'pants', 'dress', 'jacket', 'jeans', 'coat', 'top', 'skirt',
       'sweater', 'hoodie', 'shorts', 'boots', 'sneakers', 'shoes', 'blouse',
       'suit', 'vest', 'cardigan', 'trousers', 'leggings', 'sock', 'hat',
     ];
     const captionHasClothing = CLOTHING_WORDS.some(w => caption.toLowerCase().includes(w));
-
-    // Strict logic: only accept explicit "yes" — anything else is a rejection
     const fullVisible = fullVisibleAnswer.toLowerCase().startsWith('yes');
     const suitable    = suitableAnswer.toLowerCase().startsWith('yes');
 
-    if (!captionHasClothing) {
-      return { isGood: false, reason: 'לא זוהה פריט לבוש בתמונה — הנח את הבגד במרכז הפריים וצלם מחדש' };
-    }
-    if (!fullVisible) {
-      return { isGood: false, reason: 'הפריט לא נראה במלואו — צלם את הבגד השלם כולל החלק העליון והתחתון' };
-    }
-    if (!suitable) {
-      return { isGood: false, reason: 'התמונה לא מתאימה לפרסום — נסה עם תאורה טובה יותר ורקע נקי' };
-    }
-
+    if (!captionHasClothing) return { isGood: false, reason: 'לא זוהה פריט לבוש בתמונה — הנח את הבגד במרכז הפריים וצלם מחדש' };
+    if (!fullVisible)        return { isGood: false, reason: 'הפריט לא נראה במלואו — צלם את הבגד השלם כולל החלק העליון והתחתון' };
+    if (!suitable)           return { isGood: false, reason: 'התמונה לא מתאימה לפרסום — נסה עם תאורה טובה יותר ורקע נקי' };
     return { isGood: true };
   } catch {
-    return { isGood: true }; // network error → allow through
+    return { isGood: true };
   }
 }

@@ -1,9 +1,8 @@
 import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 import type { Database } from './database.types';
 
-// ─── WebSocket ───────────────────────────────────────────────────────────────
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const WebSocketImpl: typeof WebSocket =
   typeof globalThis.WebSocket !== 'undefined'
     ? globalThis.WebSocket
@@ -14,16 +13,21 @@ const SUPABASE_URL =
 const SUPABASE_ANON_KEY =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? 'YOUR_ANON_KEY_HERE';
 
+// AsyncStorage crashes on web during SSR because `window` isn't defined yet.
+// On native we need it for session persistence across app restarts.
+const storageAdapter = Platform.OS !== 'web'
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  ? require('@react-native-async-storage/async-storage').default
+  : undefined;
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    storage: storageAdapter,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: typeof window !== 'undefined',
+    detectSessionInUrl: Platform.OS === 'web',
   },
   realtime: {
-    // Explicit WebSocket class — fixes "WebSocket is not defined" in
-    // environments where the global isn't set (Metro/Node test runners).
     transport: WebSocketImpl,
     params: { eventsPerSecond: 10 },
   },

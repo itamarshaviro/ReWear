@@ -56,9 +56,9 @@ export default function PreviewScreen() {
   const condLabel = draft.condition ? CONDITION_LABELS[draft.condition] : '';
   const condColor = draft.condition ? CONDITION_COLORS[draft.condition] : '#9CA3AF';
 
-  function publish() {
+  async function publish() {
     if (!draft) return;
-    addListing({
+    await addListing({
       name: draft.name ?? 'פריט',
       brand: draft.brand ?? '',
       category: draft.category ?? 'accessories',
@@ -89,7 +89,7 @@ export default function PreviewScreen() {
 
         {/* Feed card preview */}
         <View style={styles.card}>
-          <Image source={{ uri: draft.imageUri }} style={styles.cardImage} contentFit="cover" />
+          <Image source={{ uri: draft.imageUri }} style={styles.cardImage} contentFit="contain" />
 
           {/* Overlaid condition badge */}
           <View style={[styles.condBadge, { backgroundColor: condColor }]}>
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     shadowColor: '#6366F1', shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.14, shadowRadius: 20, elevation: 8,
   },
-  cardImage: { width: '100%', height: 280 },
+  cardImage: { width: '100%', height: 280, backgroundColor: '#F3F4F6' },
   condBadge: {
     position: 'absolute', top: 14, left: 14,
     borderRadius: 100, paddingHorizontal: 12, paddingVertical: 5,

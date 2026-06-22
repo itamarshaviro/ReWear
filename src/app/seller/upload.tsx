@@ -16,7 +16,7 @@ import { router } from 'expo-router';
 import { useApp } from '@/context/app-context';
 import { AI_RESULTS_BY_CATEGORY, CONDITION_LABELS } from '@/data/mock';
 import { enhanceImage, isCloudinaryConfigured } from '@/lib/cloudinary';
-import { recognizeFromUrl, hexToHebrewColor, suggestPrice, checkImageQuality, isGeminiConfigured } from '@/lib/ai-recognition';
+import { recognizeFromUrl, hexToHebrewColor, suggestPrice, checkImageQuality, isGeminiConfigured, isOpenAIConfigured } from '@/lib/ai-recognition';
 import { useLocalSearchParams } from 'expo-router';
 import type { Category, AiConfidence } from '@/data/mock';
 import type { EnhanceResult } from '@/lib/cloudinary';
@@ -105,7 +105,8 @@ export default function UploadScreen() {
     if (hfResult && (hfResult.category || hfResult.brand)) {
       const CATEGORY_HE: Partial<Record<Category, string>> = {
         'mens-pants': 'מכנסיים', 'mens-shirts': 'חולצה', 'womens-dresses': 'שמלה',
-        'womens-shirts': 'חולצה', 'womens-tops': 'גופייה', 'shoes': 'נעליים',
+        'mens-tops': 'גופייה', 'womens-pants': 'מכנסיים',
+        'womens-shirts': 'חולצה', 'womens-tops': 'גופייה', 'mens-shoes': 'נעליים', 'womens-shoes': 'נעליים',
         'accessories': 'אביזר',
       };
       const cat = hfResult.category ?? 'accessories';
@@ -237,9 +238,9 @@ export default function UploadScreen() {
               </Text>
             </View>
           )}
-          <View style={[styles.cloudinaryBadge, isGeminiConfigured() ? styles.geminiBadge : styles.demoBadge]}>
-            <Text style={[styles.cloudinaryBadgeText, isGeminiConfigured() ? styles.geminiBadgeText : styles.demoBadgeText]}>
-              {isGeminiConfigured() ? '✨ Gemini AI — זיהוי מותגים וצבעים' : '🤖 BLIP — הגדר Gemini לזיהוי מדויק יותר'}
+          <View style={[styles.cloudinaryBadge, (isOpenAIConfigured() || isGeminiConfigured()) ? styles.geminiBadge : styles.demoBadge]}>
+            <Text style={[styles.cloudinaryBadgeText, (isOpenAIConfigured() || isGeminiConfigured()) ? styles.geminiBadgeText : styles.demoBadgeText]}>
+              {isOpenAIConfigured() ? '✨ GPT-4o-mini — זיהוי מותגים וצבעים' : isGeminiConfigured() ? '✨ Gemini AI — זיהוי מותגים וצבעים' : '🤖 BLIP — הגדר OpenAI לזיהוי מדויק יותר'}
             </Text>
           </View>
 
@@ -302,7 +303,7 @@ export default function UploadScreen() {
 
           <View style={styles.beforeAfterRow}>
             <View style={styles.imageBox}>
-              <Image source={{ uri: enhance.originalUri }} style={styles.beforeAfterImg} contentFit="cover" />
+              <Image source={{ uri: enhance.originalUri }} style={styles.beforeAfterImg} contentFit="contain" />
               <View style={styles.imageLabel}>
                 <Text style={styles.imageLabelText}>לפני</Text>
               </View>
@@ -311,7 +312,7 @@ export default function UploadScreen() {
               <Text style={styles.arrow}>→</Text>
             </View>
             <View style={styles.imageBox}>
-              <Image source={{ uri: enhance.enhancedUri }} style={styles.beforeAfterImg} contentFit="cover" />
+              <Image source={{ uri: enhance.enhancedUri }} style={styles.beforeAfterImg} contentFit="contain" />
               <View style={[styles.imageLabel, styles.imageLabelAfter]}>
                 <Text style={[styles.imageLabelText, styles.imageLabelTextAfter]}>אחרי ✨</Text>
               </View>
@@ -432,8 +433,8 @@ const styles = StyleSheet.create({
   demoNotice: { backgroundColor: '#FEF3C7', borderRadius: 12, padding: 10 },
   demoNoticeText: { fontSize: 12, color: '#92400E', textAlign: 'center' },
   beforeAfterRow: { flexDirection: 'row-reverse', gap: 8, alignItems: 'center' },
-  imageBox: { flex: 1, borderRadius: 16, overflow: 'hidden', position: 'relative' },
-  beforeAfterImg: { width: '100%', height: 200 },
+  imageBox: { flex: 1, borderRadius: 16, overflow: 'hidden', position: 'relative', backgroundColor: '#F3F4F6' },
+  beforeAfterImg: { width: '100%', height: 260, backgroundColor: '#F3F4F6' },
   imageLabel: {
     position: 'absolute', bottom: 8, right: 8,
     backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
