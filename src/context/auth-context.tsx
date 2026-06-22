@@ -36,6 +36,7 @@ type AuthContextType = {
   isLoading: boolean;
   pendingEmail: string;
   register: (data: RegisterPayload) => Promise<void>;
+  login: (email: string) => Promise<void>;
   verifyCode: (code: string) => Promise<boolean>;
   setIdImage: (uri: string) => void;
   completeProfile: (address: string) => void;
@@ -123,6 +124,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: data.email,
         options: {
           shouldCreateUser: true,
+          emailRedirectTo:
+            typeof window !== 'undefined' ? window.location.origin : undefined,
+        },
+      });
+    }
+  }
+
+  async function login(email: string) {
+    // Store minimal pending so verifyCode can run
+    setPending({ firstName: '', lastName: '', email, phone: '', idImageUri: null });
+
+    if (isSupabaseConfigured()) {
+      await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: false,
           emailRedirectTo:
             typeof window !== 'undefined' ? window.location.origin : undefined,
         },
@@ -229,6 +246,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       pendingEmail,
       register,
+      login,
       verifyCode,
       setIdImage,
       completeProfile,

@@ -119,8 +119,8 @@ export default function RegisterScreen() {
               קוד אימות יישלח לאימייל שלך
             </Text>
 
-            <TouchableOpacity onPress={() => router.replace('/')}>
-              <Text style={styles.skipText}>כבר יש לי חשבון — דלג</Text>
+            <TouchableOpacity onPress={() => router.replace('/auth/login')}>
+              <Text style={styles.skipText}>כבר יש לי חשבון — התחבר</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
