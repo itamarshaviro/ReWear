@@ -153,23 +153,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const authUser = data.user;
     if (!authUser) return 'שגיאה ביצירת חשבון';
 
-    // Save profile
-    await supabase.from('users').upsert({
-      auth_id: authUser.id,
-      first_name: payload.firstName,
-      last_name: payload.lastName,
+    // Save profile and get back the generated UUID
+    const { data: profile } = await supabase
+      .from('users')
+      .upsert({
+        auth_id: authUser.id,
+        first_name: payload.firstName,
+        last_name: payload.lastName,
+        email: payload.email,
+        phone: payload.phone,
+        age: payload.age ?? null,
+        address: address || null,
+        is_verified: true,
+        is_premium: false,
+      })
+      .select('id')
+      .single();
+
+    // If no session → email confirmation required (happens when "Confirm email" is ON)
+    if (!data.session) return 'needs-verify';
+
+    // Set user directly to avoid race condition with onAuthStateChange:
+    // onAuthStateChange fires before the upsert above completes, so handleAuthUser
+    // wouldn't find the profile yet. Setting state here guarantees the user lands
+    // on the home screen without a redirect loop.
+    setUser({
+      id: authUser.id,
+      dbId: profile?.id ?? authUser.id,
+      firstName: payload.firstName,
+      lastName: payload.lastName,
       email: payload.email,
       phone: payload.phone,
       age: payload.age ?? null,
-      address: address || null,
-      is_verified: true,
-      is_premium: false,
+      address,
+      isVerified: true,
+      isPremium: false,
     });
-
-    // If no session → email confirmation required
-    if (!data.session) return 'needs-verify';
-
-    // Session exists → auto signed in, handleAuthUser fires via onAuthStateChange
     return 'ok';
   }
 
