@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import {
-  Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View,
+  Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -153,10 +153,13 @@ export default function ProfileScreen() {
   }
 
   function handleLogout() {
-    Alert.alert('התנתקות', 'האם אתה בטוח שברצונך להתנתק?', [
-      { text: 'ביטול', style: 'cancel' },
-      { text: 'התנתק', style: 'destructive', onPress: () => { logout(); router.replace('/auth/register'); } },
-    ]);
+    const confirmed = Platform.OS === 'web'
+      ? window.confirm('האם אתה בטוח שברצונך להתנתק?')
+      : true;
+    if (confirmed) {
+      logout();
+      router.replace('/auth');
+    }
   }
 
   return (
