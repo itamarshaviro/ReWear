@@ -19,7 +19,10 @@ export default function LoginScreen() {
 
   // Navigate to home once the user is set after successful sign-in
   useEffect(() => {
-    if (user) router.replace('/');
+    if (user) {
+      // Defer to avoid "Cannot update a component during render" warning
+      setTimeout(() => router.replace('/'), 0);
+    }
   }, [user]);
 
   const [email,    setEmail]    = useState('');
