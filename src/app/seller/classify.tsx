@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingVertical: 12,
   },
   title: { fontSize: 18, fontWeight: '800', color: '#111827' },
-  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', transform: [{ scaleX: -1 }] },
   backText: { fontSize: 22, color: '#6366F1', fontWeight: '700' },
   scroll: { padding: 16, gap: 24, paddingBottom: 16 },
   section: { gap: 12 },
