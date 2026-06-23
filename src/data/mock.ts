@@ -20,7 +20,7 @@ export type SubCategory = {
 };
 
 export const WINTER_MENS_SUBS: SubCategory[] = [
-  { key: 'sweater',    label: "סווצ'ר / הודי",     emoji: '🧤', parentCategory: 'mens-winter' },
+  { key: 'sweater',    label: "סווצ'ר",             emoji: '🧤', parentCategory: 'mens-winter' },
   { key: 'winterpant', label: 'מכנס חורף',          emoji: '👖', parentCategory: 'mens-winter' },
   { key: 'coat',       label: "מעיל / ג'קט חורף",  emoji: '🧥', parentCategory: 'mens-winter' },
   { key: 'scarf',      label: 'צעיפים / כובעים',   emoji: '🧣', parentCategory: 'mens-winter' },
@@ -28,11 +28,12 @@ export const WINTER_MENS_SUBS: SubCategory[] = [
 ];
 
 export const WINTER_WOMENS_SUBS: SubCategory[] = [
-  { key: 'sweater',     label: "סווצ'ר / הודי",      emoji: '🧤', parentCategory: 'womens-winter' },
-  { key: 'winterpant',  label: 'מכנס חורף',           emoji: '👖', parentCategory: 'womens-winter' },
-  { key: 'coat',        label: "מעיל / ג'קט חורף",   emoji: '🧥', parentCategory: 'womens-winter' },
-  { key: 'winterdress', label: 'שמלת חורף',           emoji: '👗', parentCategory: 'womens-winter' },
-  { key: 'scarf',       label: 'צעיפים / כובעים',    emoji: '🧣', parentCategory: 'womens-winter' },
+  { key: 'sweater',     label: "סווצ'ר",             emoji: '🧤', parentCategory: 'womens-winter' },
+  { key: 'winterpant',  label: 'מכנס חורף',          emoji: '👖', parentCategory: 'womens-winter' },
+  { key: 'coat',        label: "מעיל / ג'קט חורף",  emoji: '🧥', parentCategory: 'womens-winter' },
+  { key: 'winterdress', label: 'שמלת חורף',          emoji: '👗', parentCategory: 'womens-winter' },
+  { key: 'scarf',       label: 'צעיפים / כובעים',   emoji: '🧣', parentCategory: 'womens-winter' },
+  { key: 'socks',       label: 'גרביים',             emoji: '🧦', parentCategory: 'womens-winter' },
 ];
 
 export const ACCESSORIES_SUBS: SubCategory[] = [

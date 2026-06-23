@@ -2,56 +2,85 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import type { Category } from '@/data/mock';
+import {
+  ACCESSORIES_SUBS,
+  WINTER_MENS_SUBS,
+  WINTER_WOMENS_SUBS,
+} from '@/data/mock';
+import type { Category, SubCategory } from '@/data/mock';
 
 type Gender = 'men' | 'women';
 
-type ItemOption = {
+type SellerCat = {
+  id: Category;
   label: string;
   emoji: string;
-  category: (g: Gender) => Category;
   genders: Gender[];
+  subs?: SubCategory[];
 };
 
-const ITEM_OPTIONS: ItemOption[] = [
-  { label: 'חולצה',            emoji: '👕', category: g => g === 'men' ? 'mens-shirts'  : 'womens-shirts',  genders: ['men', 'women'] },
-  { label: 'מכנסיים',          emoji: '👖', category: g => g === 'men' ? 'mens-pants'   : 'womens-pants',   genders: ['men', 'women'] },
-  { label: 'גופייה / טופ',     emoji: '🎽', category: g => g === 'men' ? 'mens-tops'    : 'womens-tops',    genders: ['men', 'women'] },
-  { label: 'שמלה',             emoji: '👗', category: () => 'womens-dresses',                               genders: ['women'] },
-  { label: 'חצאית',            emoji: '🩱', category: () => 'womens-dresses',                               genders: ['women'] },
-  { label: 'נעליים',           emoji: '👟', category: g => g === 'men' ? 'mens-shoes'   : 'womens-shoes',   genders: ['men', 'women'] },
-  { label: "סווצ'ר / הודי",    emoji: '🧤', category: g => g === 'men' ? 'mens-winter'  : 'womens-winter',  genders: ['men', 'women'] },
-  { label: "מעיל / ג'קט חורף", emoji: '🧥', category: g => g === 'men' ? 'mens-winter'  : 'womens-winter',  genders: ['men', 'women'] },
-  { label: 'מכנס חורף',        emoji: '🩳', category: g => g === 'men' ? 'mens-winter'  : 'womens-winter',  genders: ['men', 'women'] },
-  { label: 'אביזר',            emoji: '💍', category: () => 'accessories',                                  genders: ['men', 'women'] },
+const SELLER_CATS: SellerCat[] = [
+  { id: 'mens-pants',     label: 'מכנסי גברים',      emoji: '👖', genders: ['men'] },
+  { id: 'womens-pants',   label: 'מכנסי נשים',       emoji: '👖', genders: ['women'] },
+  { id: 'mens-shirts',    label: 'חולצות גברים',     emoji: '👔', genders: ['men'] },
+  { id: 'womens-shirts',  label: 'חולצות נשים',      emoji: '👚', genders: ['women'] },
+  { id: 'mens-tops',      label: 'גופיות גברים',     emoji: '🎽', genders: ['men'] },
+  { id: 'womens-tops',    label: 'גופיות נשים',      emoji: '🎽', genders: ['women'] },
+  { id: 'mens-shoes',     label: 'נעלי גברים',       emoji: '👟', genders: ['men'] },
+  { id: 'womens-shoes',   label: 'נעלי נשים',        emoji: '👠', genders: ['women'] },
+  { id: 'womens-dresses', label: 'שמלות נשים',       emoji: '👗', genders: ['women'] },
+  { id: 'mens-winter',    label: 'ביגוד חורף גברים', emoji: '🧥', genders: ['men'],   subs: WINTER_MENS_SUBS },
+  { id: 'womens-winter',  label: 'ביגוד חורף נשים',  emoji: '🧥', genders: ['women'], subs: WINTER_WOMENS_SUBS },
+  { id: 'accessories',    label: 'אביזרים',           emoji: '👜', genders: ['men', 'women'], subs: ACCESSORIES_SUBS },
 ];
 
 export default function ClassifyScreen() {
-  const [gender, setGender] = useState<Gender | null>(null);
-  const [selectedOption, setSelectedOption] = useState<ItemOption | null>(null);
+  const [gender, setGender]           = useState<Gender | null>(null);
+  const [selectedCat, setSelectedCat] = useState<Category | null>(null);
+  const [selectedSub, setSelectedSub] = useState<string | null>(null);
+  const [expanded, setExpanded]       = useState<Category | null>(null);
 
-  const visibleOptions = gender
-    ? ITEM_OPTIONS.filter(o => o.genders.includes(gender))
-    : ITEM_OPTIONS;
+  const visible = gender ? SELLER_CATS.filter(c => c.genders.includes(gender)) : [];
 
   function handleGender(g: Gender) {
     setGender(g);
-    // Clear item selection if it's not valid for the new gender
-    if (selectedOption && !selectedOption.genders.includes(g)) {
-      setSelectedOption(null);
+    setSelectedCat(null);
+    setSelectedSub(null);
+    setExpanded(null);
+  }
+
+  function handleCat(cat: SellerCat) {
+    if (cat.subs) {
+      setExpanded(prev => prev === cat.id ? null : cat.id);
+      setSelectedCat(null);
+      setSelectedSub(null);
+    } else {
+      setSelectedCat(cat.id);
+      setSelectedSub(null);
+      setExpanded(null);
     }
   }
 
+  function handleSub(sub: SubCategory) {
+    setSelectedCat(sub.parentCategory);
+    setSelectedSub(sub.key);
+  }
+
   function handleContinue() {
-    if (!gender || !selectedOption) return;
-    const category = selectedOption.category(gender);
+    if (!selectedCat) return;
     router.push({
       pathname: '/seller/upload',
-      params: { preCategory: category, preGender: gender, preLabel: selectedOption.label },
+      params: { preCategory: selectedCat, preGender: gender ?? 'men', preLabel: '' },
     });
   }
 
-  const canContinue = gender !== null && selectedOption !== null;
+  const canContinue = selectedCat !== null;
+
+  // Pair categories into rows of 2 (men left, women right visually via row-reverse)
+  const rows: SellerCat[][] = [];
+  for (let i = 0; i < visible.length; i += 2) {
+    rows.push(visible.slice(i, i + 2));
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -71,16 +100,14 @@ export default function ClassifyScreen() {
           <View style={styles.genderRow}>
             <TouchableOpacity
               style={[styles.genderBtn, gender === 'women' && styles.genderBtnActive]}
-              onPress={() => handleGender('women')}
-              activeOpacity={0.8}
+              onPress={() => handleGender('women')} activeOpacity={0.8}
             >
               <Text style={styles.genderEmoji}>👩</Text>
               <Text style={[styles.genderText, gender === 'women' && styles.genderTextActive]}>נשים</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.genderBtn, gender === 'men' && styles.genderBtnActive]}
-              onPress={() => handleGender('men')}
-              activeOpacity={0.8}
+              onPress={() => handleGender('men')} activeOpacity={0.8}
             >
               <Text style={styles.genderEmoji}>👨</Text>
               <Text style={[styles.genderText, gender === 'men' && styles.genderTextActive]}>גברים</Text>
@@ -88,47 +115,74 @@ export default function ClassifyScreen() {
           </View>
         </View>
 
-        {/* Step 2 — Item type */}
-        <View style={styles.section}>
-          <Text style={[styles.stepLabel, !gender && styles.stepLabelDim]}>שלב 2 · סוג פריט</Text>
-          <View style={styles.grid}>
-            {visibleOptions.map(option => {
-              const isSelected = selectedOption?.label === option.label &&
-                selectedOption?.emoji === option.emoji;
-              return (
-                <TouchableOpacity
-                  key={option.label + option.emoji}
-                  style={[styles.itemCard, isSelected && styles.itemCardActive, !gender && styles.itemCardDisabled]}
-                  onPress={() => gender && setSelectedOption(option)}
-                  activeOpacity={0.75}
-                >
-                  <Text style={styles.itemEmoji}>{option.emoji}</Text>
-                  <Text style={[styles.itemLabel, isSelected && styles.itemLabelActive]}>
-                    {option.label}
-                  </Text>
-                  {isSelected && (
-                    <View style={styles.checkMark}>
-                      <Text style={styles.checkMarkText}>✓</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
+        {/* Step 2 — Category grid */}
+        {gender && (
+          <View style={styles.section}>
+            <Text style={styles.stepLabel}>שלב 2 · סוג פריט</Text>
+            <View style={styles.grid}>
+              {rows.map((pair, ri) => (
+                <View key={ri}>
+                  <View style={styles.row}>
+                    {pair.map(cat => {
+                      const isSelected = selectedCat === cat.id && !cat.subs;
+                      const isExpanded = expanded === cat.id;
+                      return (
+                        <TouchableOpacity
+                          key={cat.id}
+                          style={[
+                            styles.card,
+                            (isSelected || isExpanded) && styles.cardActive,
+                          ]}
+                          onPress={() => handleCat(cat)}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.emoji}>{cat.emoji}</Text>
+                          <Text style={styles.label}>{cat.label}</Text>
+                          {cat.subs && (
+                            <Text style={styles.arrow}>{isExpanded ? '▲' : '▼'}</Text>
+                          )}
+                          {isSelected && (
+                            <View style={styles.check}>
+                              <Text style={styles.checkText}>✓</Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                    {pair.length === 1 && <View style={styles.cardPlaceholder} />}
+                  </View>
 
-        {/* Summary pill */}
-        {canContinue && (
-          <View style={styles.summaryPill}>
-            <Text style={styles.summaryText}>
-              {gender === 'men' ? 'גברים' : 'נשים'} · {selectedOption!.emoji} {selectedOption!.label}
-            </Text>
+                  {/* Sub-categories */}
+                  {pair.map(cat =>
+                    cat.subs && expanded === cat.id ? (
+                      <View key={`subs-${cat.id}`} style={styles.subGrid}>
+                        {cat.subs.map(sub => {
+                          const subSelected = selectedSub === sub.key && selectedCat === sub.parentCategory;
+                          return (
+                            <TouchableOpacity
+                              key={sub.key}
+                              style={[styles.subCard, subSelected && styles.subCardActive]}
+                              onPress={() => handleSub(sub)}
+                              activeOpacity={0.75}
+                            >
+                              <Text style={styles.subEmoji}>{sub.emoji}</Text>
+                              <Text style={[styles.subLabel, subSelected && styles.subLabelActive]}>
+                                {sub.label}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    ) : null
+                  )}
+                </View>
+              ))}
+            </View>
           </View>
         )}
 
       </ScrollView>
 
-      {/* Continue button */}
       <View style={styles.footer}>
         <TouchableOpacity
           style={[styles.continueBtn, !canContinue && styles.continueBtnDisabled]}
@@ -154,59 +208,58 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, fontWeight: '800', color: '#111827' },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   backText: { fontSize: 22, color: '#6366F1', fontWeight: '700' },
-
-  scroll: { padding: 20, gap: 24, paddingBottom: 16 },
-
+  scroll: { padding: 16, gap: 24, paddingBottom: 16 },
   section: { gap: 12 },
   stepLabel: { fontSize: 13, fontWeight: '700', color: '#6366F1', textAlign: 'right', letterSpacing: 0.5 },
-  stepLabelDim: { color: '#C4B5FD' },
 
-  // Gender
   genderRow: { flexDirection: 'row-reverse', gap: 12 },
   genderBtn: {
     flex: 1, alignItems: 'center', paddingVertical: 20, borderRadius: 20,
     backgroundColor: '#fff', borderWidth: 2, borderColor: '#E5E7EB', gap: 6,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
   },
-  genderBtnActive: {
-    backgroundColor: '#EEF2FF', borderColor: '#6366F1',
-    shadowColor: '#6366F1', shadowOpacity: 0.2,
-  },
+  genderBtnActive: { backgroundColor: '#EEF2FF', borderColor: '#6366F1', shadowColor: '#6366F1', shadowOpacity: 0.2 },
   genderEmoji: { fontSize: 36 },
   genderText: { fontSize: 17, fontWeight: '700', color: '#6B7280' },
   genderTextActive: { color: '#6366F1' },
 
-  // Item grid
-  grid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 10 },
-  itemCard: {
-    width: '47%', alignItems: 'center', paddingVertical: 18, paddingHorizontal: 8,
-    backgroundColor: '#fff', borderRadius: 18, borderWidth: 2, borderColor: '#E5E7EB',
-    gap: 6, position: 'relative',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
+  grid: { gap: 12 },
+  row: { flexDirection: 'row-reverse', gap: 12 },
+  card: {
+    flex: 1, alignItems: 'center', paddingVertical: 22, borderRadius: 20,
+    backgroundColor: '#fff', borderWidth: 2, borderColor: '#E5E7EB', gap: 7,
+    shadowColor: '#6366F1', shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.07, shadowRadius: 8, elevation: 3, position: 'relative',
   },
-  itemCardActive: {
-    backgroundColor: '#EEF2FF', borderColor: '#6366F1',
-    shadowColor: '#6366F1', shadowOpacity: 0.18,
-  },
-  itemCardDisabled: { opacity: 0.4 },
-  itemEmoji: { fontSize: 32 },
-  itemLabel: { fontSize: 14, fontWeight: '600', color: '#374151' },
-  itemLabelActive: { color: '#6366F1', fontWeight: '800' },
-  checkMark: {
+  cardActive: { backgroundColor: '#EEF2FF', borderColor: '#6366F1' },
+  cardPlaceholder: { flex: 1 },
+  emoji: { fontSize: 34 },
+  label: { fontSize: 13, fontWeight: '700', color: '#374151', textAlign: 'center' },
+  arrow: { fontSize: 10, color: '#6366F1', fontWeight: '700' },
+  check: {
     position: 'absolute', top: 8, left: 8,
     width: 20, height: 20, borderRadius: 10, backgroundColor: '#6366F1',
     alignItems: 'center', justifyContent: 'center',
   },
-  checkMarkText: { fontSize: 11, color: '#fff', fontWeight: '800' },
+  checkText: { fontSize: 11, color: '#fff', fontWeight: '800' },
 
-  // Summary
-  summaryPill: {
-    alignSelf: 'center', backgroundColor: '#EEF2FF', borderRadius: 100,
-    paddingHorizontal: 20, paddingVertical: 10,
+  subGrid: {
+    flexDirection: 'row-reverse', flexWrap: 'wrap',
+    gap: 8, marginTop: 8, marginBottom: 2,
   },
-  summaryText: { fontSize: 14, fontWeight: '700', color: '#6366F1' },
+  subCard: {
+    backgroundColor: '#fff', borderRadius: 14,
+    paddingVertical: 12, paddingHorizontal: 14,
+    alignItems: 'center', gap: 5, minWidth: '30%', flexGrow: 1,
+    borderWidth: 1.5, borderColor: '#E5E7EB',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+  },
+  subCardActive: { backgroundColor: '#EEF2FF', borderColor: '#6366F1' },
+  subEmoji: { fontSize: 26 },
+  subLabel: { fontSize: 12, fontWeight: '700', color: '#374151', textAlign: 'center' },
+  subLabelActive: { color: '#6366F1' },
 
-  // Footer
   footer: { padding: 20, paddingTop: 12 },
   continueBtn: {
     backgroundColor: '#6366F1', borderRadius: 16, paddingVertical: 18, alignItems: 'center',
