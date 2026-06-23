@@ -15,7 +15,7 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useApp } from '@/context/app-context';
 import type { Condition } from '@/data/mock';
-import { CATEGORY_INFO, CONDITIONS } from '@/data/mock';
+import { CATEGORY_INFO, CONDITIONS, ALL_SIZES } from '@/data/mock';
 
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
@@ -189,13 +189,18 @@ export default function CompleteScreen() {
 
           {/* Size */}
           <Field label="מידה" required>
-            <TextInput
-              style={styles.input}
-              placeholder="לדוגמה: M, 32, 38..."
-              value={size}
-              onChangeText={setSize}
-              textAlign="right"
-            />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sizeScroll}>
+              {ALL_SIZES.map(s => (
+                <TouchableOpacity
+                  key={s}
+                  style={[styles.sizeChip, size === s && styles.sizeChipActive]}
+                  onPress={() => setSize(s)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.sizeChipText, size === s && styles.sizeChipTextActive]}>{s}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </Field>
 
           {/* Location */}
@@ -279,6 +284,14 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   radioInner: { width: 10, height: 10, borderRadius: 5 },
+  sizeScroll: { gap: 8, paddingVertical: 2 },
+  sizeChip: {
+    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 100,
+    backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#E5E7EB',
+  },
+  sizeChipActive: { backgroundColor: '#6366F1', borderColor: '#6366F1' },
+  sizeChipText: { fontSize: 14, fontWeight: '600', color: '#374151' },
+  sizeChipTextActive: { color: '#fff' },
   limitRow: { alignItems: 'flex-end' },
   limitText: { fontSize: 13, color: '#9CA3AF' },
   upgradeLink: { color: '#6366F1', fontWeight: '700' },
