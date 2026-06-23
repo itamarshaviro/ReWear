@@ -14,14 +14,16 @@ type ItemOption = {
 };
 
 const ITEM_OPTIONS: ItemOption[] = [
-  { label: 'חולצה',       emoji: '👕', category: g => g === 'men' ? 'mens-shirts'   : 'womens-shirts',  genders: ['men', 'women'] },
-  { label: "ג'קט / מעיל", emoji: '🧥', category: g => g === 'men' ? 'mens-shirts'   : 'womens-shirts',  genders: ['men', 'women'] },
-  { label: 'מכנסיים',     emoji: '👖', category: g => g === 'men' ? 'mens-pants' : 'womens-pants',      genders: ['men', 'women'] },
-  { label: 'שמלה',        emoji: '👗', category: () => 'womens-dresses',                                genders: ['women'] },
-  { label: 'חצאית',       emoji: '🩱', category: () => 'womens-dresses',                                genders: ['women'] },
-  { label: 'גופייה / טופ',emoji: '🎽', category: g => g === 'men' ? 'mens-tops' : 'womens-tops',        genders: ['men', 'women'] },
-  { label: 'נעליים',      emoji: '👟', category: g => g === 'men' ? 'mens-shoes' : 'womens-shoes',      genders: ['men', 'women'] },
-  { label: 'אביזר',       emoji: '💍', category: () => 'accessories',                                   genders: ['men', 'women'] },
+  { label: 'חולצה',            emoji: '👕', category: g => g === 'men' ? 'mens-shirts'  : 'womens-shirts',  genders: ['men', 'women'] },
+  { label: 'מכנסיים',          emoji: '👖', category: g => g === 'men' ? 'mens-pants'   : 'womens-pants',   genders: ['men', 'women'] },
+  { label: 'גופייה / טופ',     emoji: '🎽', category: g => g === 'men' ? 'mens-tops'    : 'womens-tops',    genders: ['men', 'women'] },
+  { label: 'שמלה',             emoji: '👗', category: () => 'womens-dresses',                               genders: ['women'] },
+  { label: 'חצאית',            emoji: '🩱', category: () => 'womens-dresses',                               genders: ['women'] },
+  { label: 'נעליים',           emoji: '👟', category: g => g === 'men' ? 'mens-shoes'   : 'womens-shoes',   genders: ['men', 'women'] },
+  { label: "סווצ'ר / הודי",    emoji: '🧤', category: g => g === 'men' ? 'mens-winter'  : 'womens-winter',  genders: ['men', 'women'] },
+  { label: "מעיל / ג'קט חורף", emoji: '🧥', category: g => g === 'men' ? 'mens-winter'  : 'womens-winter',  genders: ['men', 'women'] },
+  { label: 'מכנס חורף',        emoji: '🩳', category: g => g === 'men' ? 'mens-winter'  : 'womens-winter',  genders: ['men', 'women'] },
+  { label: 'אביזר',            emoji: '💍', category: () => 'accessories',                                  genders: ['men', 'women'] },
 ];
 
 export default function ClassifyScreen() {

@@ -3,12 +3,48 @@ export type Category =
   | 'mens-shirts'
   | 'mens-tops'
   | 'mens-shoes'
+  | 'mens-winter'
   | 'womens-pants'
   | 'womens-dresses'
   | 'womens-shirts'
   | 'womens-tops'
   | 'womens-shoes'
+  | 'womens-winter'
   | 'accessories';
+
+export type SubCategory = {
+  key: string;
+  label: string;
+  emoji: string;
+  parentCategory: Category;
+};
+
+export const WINTER_MENS_SUBS: SubCategory[] = [
+  { key: 'sweater',    label: "סווצ'ר / הודי",     emoji: '🧤', parentCategory: 'mens-winter' },
+  { key: 'winterpant', label: 'מכנס חורף',          emoji: '👖', parentCategory: 'mens-winter' },
+  { key: 'coat',       label: "מעיל / ג'קט חורף",  emoji: '🧥', parentCategory: 'mens-winter' },
+  { key: 'scarf',      label: 'צעיפים / כובעים',   emoji: '🧣', parentCategory: 'mens-winter' },
+  { key: 'socks',      label: 'גרביים',              emoji: '🧦', parentCategory: 'mens-winter' },
+];
+
+export const WINTER_WOMENS_SUBS: SubCategory[] = [
+  { key: 'sweater',     label: "סווצ'ר / הודי",      emoji: '🧤', parentCategory: 'womens-winter' },
+  { key: 'winterpant',  label: 'מכנס חורף',           emoji: '👖', parentCategory: 'womens-winter' },
+  { key: 'coat',        label: "מעיל / ג'קט חורף",   emoji: '🧥', parentCategory: 'womens-winter' },
+  { key: 'winterdress', label: 'שמלת חורף',           emoji: '👗', parentCategory: 'womens-winter' },
+  { key: 'scarf',       label: 'צעיפים / כובעים',    emoji: '🧣', parentCategory: 'womens-winter' },
+];
+
+export const ACCESSORIES_SUBS: SubCategory[] = [
+  { key: 'jewelry',    label: 'תכשיטים',       emoji: '💍', parentCategory: 'accessories' },
+  { key: 'bags',       label: 'תיקים',          emoji: '👜', parentCategory: 'accessories' },
+  { key: 'books',      label: 'ספרים',          emoji: '📚', parentCategory: 'accessories' },
+  { key: 'boardgames', label: 'משחקי קופסא',   emoji: '🎲', parentCategory: 'accessories' },
+  { key: 'sunglasses', label: 'משקפי שמש',     emoji: '🕶️', parentCategory: 'accessories' },
+  { key: 'watches',    label: 'שעונים',         emoji: '⌚', parentCategory: 'accessories' },
+  { key: 'hats',       label: 'כובעים',         emoji: '🎩', parentCategory: 'accessories' },
+  { key: 'belts',      label: 'חגורות',         emoji: '👔', parentCategory: 'accessories' },
+];
 
 export type Condition =
   | 'new-with-tag'
@@ -100,16 +136,18 @@ export type AiDraft = {
 
 // Order matters: pairs render as (even index = right/men, odd index = left/women) with row-reverse
 export const CATEGORY_INFO: Record<Category, { label: string; emoji: string }> = {
-  'mens-pants':     { label: 'מכנסי גברים',  emoji: '👖' },
-  'womens-pants':   { label: 'מכנסי נשים',   emoji: '👖' },
-  'mens-shirts':    { label: 'חולצות גברים', emoji: '👔' },
-  'womens-shirts':  { label: 'חולצות נשים',  emoji: '👚' },
-  'mens-tops':      { label: 'גופיות גברים', emoji: '🎽' },
-  'womens-tops':    { label: 'גופיות נשים',  emoji: '🎽' },
-  'mens-shoes':     { label: 'נעלי גברים',   emoji: '👟' },
-  'womens-shoes':   { label: 'נעלי נשים',    emoji: '👠' },
-  'accessories':    { label: 'אביזרים',       emoji: '👜' },
-  'womens-dresses': { label: 'שמלות נשים',   emoji: '👗' },
+  'mens-pants':     { label: 'מכנסי גברים',       emoji: '👖' },
+  'womens-pants':   { label: 'מכנסי נשים',        emoji: '👖' },
+  'mens-shirts':    { label: 'חולצות גברים',      emoji: '👔' },
+  'womens-shirts':  { label: 'חולצות נשים',       emoji: '👚' },
+  'mens-tops':      { label: 'גופיות גברים',      emoji: '🎽' },
+  'womens-tops':    { label: 'גופיות נשים',       emoji: '🎽' },
+  'mens-shoes':     { label: 'נעלי גברים',        emoji: '👟' },
+  'womens-shoes':   { label: 'נעלי נשים',         emoji: '👠' },
+  'mens-winter':    { label: 'ביגוד חורף גברים',  emoji: '🧥' },
+  'womens-winter':  { label: 'ביגוד חורף נשים',   emoji: '🧥' },
+  'accessories':    { label: 'אביזרים',            emoji: '👜' },
+  'womens-dresses': { label: 'שמלות נשים',        emoji: '👗' },
 };
 
 export const CATEGORIES = Object.entries(CATEGORY_INFO).map(([id, info]) => ({
@@ -287,5 +325,23 @@ export const AI_RESULTS_BY_CATEGORY: Record<Category, Omit<AiDraft, 'imageUri'>>
     color: 'שחור',
     description: 'תיק עור קטן, ללא שריטות נראות, מצב מעולה.',
     confidence: { name: 0.79, brand: 0.42, category: 0.91, condition: 0.81, color: 0.95 },
+  },
+  'mens-winter': {
+    name: "סווצ'ר / מעיל",
+    brand: undefined,
+    category: 'mens-winter',
+    condition: 'good',
+    color: 'אפור',
+    description: 'פריט חורף לגברים.',
+    confidence: { name: 0.78, brand: 0.40, category: 0.90, condition: 0.70, color: 0.85 },
+  },
+  'womens-winter': {
+    name: "סווצ'ר / מעיל",
+    brand: undefined,
+    category: 'womens-winter',
+    condition: 'good',
+    color: 'שחור',
+    description: 'פריט חורף לנשים.',
+    confidence: { name: 0.78, brand: 0.40, category: 0.90, condition: 0.70, color: 0.85 },
   },
 };
