@@ -29,9 +29,10 @@ type AppContextType = {
   getItemStatus: (itemId: string) => ItemStatus;
   getLikesCount: (itemId: string) => number;
   sendInterest: (item: ClothingItem) => Promise<void>;
-  respondToRequest: (requestId: string, accept: boolean) => Promise<void>;
+  respondToRequest: (requestId: string, response: 'accept' | 'hold' | 'decline') => Promise<void>;
   sendMessage: (chatId: string, text: string, from: 'buyer' | 'seller') => Promise<void>;
   markSold: (chatId: string) => Promise<void>;
+  buyerConfirmSold: (chatId: string) => Promise<void>;
   submitRating: (chatId: string, score: number, review: string, role: 'buyer' | 'seller') => Promise<void>;
   upgradePremium: () => Promise<void>;
 };
@@ -218,6 +219,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     type MatchWithItem = {
       id: string; item_id: string; buyer_id: string; seller_id: string;
       buyer_name: string; status: 'pending' | 'accepted' | 'declined'; created_at: string;
+      seller_marked_sold: boolean;
       items: { name: string; image_url: string | null; seller_name: string } | null;
     };
     const { data: matchesRaw } = await supabase
@@ -260,6 +262,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         otherPartyName,
         messages: msgsByMatch[m.id] ?? [],
         isClosed: false,
+        isSeller,
+        sellerMarkedSold: m.seller_marked_sold ?? false,
       };
     }));
   }
@@ -348,17 +352,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }]);
   }
 
-  async function respondToRequest(requestId: string, accept: boolean) {
+  async function respondToRequest(requestId: string, response: 'accept' | 'hold' | 'decline') {
+    const msgText =
+      response === 'accept' ? 'היי! הפריט זמין, שמחים שמעניין אותך 😊' :
+      response === 'hold'   ? 'היי, כרגע יש מתעניין/ת אחר/ת בפריט. אעדכן אם יתפנה! 🤞' :
+                              'הפריט כבר לא זמין, מצטערים 😔';
+    const newStatus = response === 'accept' ? 'accepted' : response === 'hold' ? 'on_hold' : 'declined';
+
     if (configured) {
-      await supabase.from('matches').update({ status: accept ? 'accepted' : 'declined' }).eq('id', requestId);
-      if (accept && dbId) {
-        await supabase.from('messages').insert({
-          match_id: requestId,
-          sender_id: dbId,
-          text: 'היי! שמח/ה שהפריט מעניין אותך. הוא זמין 😊',
-          is_read: false,
-        });
-        await loadChats();
+      await supabase.from('matches').update({ status: newStatus }).eq('id', requestId);
+      if (dbId) {
+        await supabase.from('messages').insert({ match_id: requestId, sender_id: dbId, text: msgText, is_read: false });
+        if (response === 'accept') await loadChats();
       }
       await loadRequests();
       return;
@@ -366,18 +371,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     let found: InterestRequest | undefined;
     setRequests(prev => prev.map(r => {
-      if (r.id === requestId) { found = r; return { ...r, status: accept ? 'accepted' : 'declined' }; }
+      if (r.id === requestId) { found = r; return { ...r, status: newStatus }; }
       return r;
     }));
-    if (accept && found) {
+    if (response === 'accept' && found) {
       const req = found;
       setChats(prev => [...prev, {
         id: `chat-${Date.now()}`,
-        itemId: req.itemId,
-        itemName: req.itemName,
-        itemImage: req.itemImage,
-        otherPartyName: req.buyerName,
-        messages: [{ id: 'msg-init', text: 'היי! שמח/ה שהפריט מעניין אותך. הוא זמין 😊', from: 'seller', timestamp: ts() }],
+        itemId: req.itemId, itemName: req.itemName, itemImage: req.itemImage,
+        otherPartyName: req.buyerName, isSeller: true, sellerMarkedSold: false,
+        messages: [{ id: 'msg-init', text: msgText, from: 'seller', timestamp: ts() }],
+        isClosed: false,
       }]);
     }
   }
@@ -399,6 +403,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   async function markSold(chatId: string) {
+    if (configured && dbId) {
+      await supabase.from('matches').update({ seller_marked_sold: true }).eq('id', chatId);
+      await supabase.from('messages').insert({
+        match_id: chatId, sender_id: dbId,
+        text: '📦 סימנתי שהפריט נמכר. אנא אשר/י את הרכישה כדי לסיים את העסקה.',
+        is_read: false,
+      });
+      await loadChats();
+      return;
+    }
+    setChats(prev => prev.map(c => c.id === chatId ? { ...c, sellerMarkedSold: true } : c));
+  }
+
+  async function buyerConfirmSold(chatId: string) {
     if (configured) {
       const { data: match } = await supabase.from('matches').select('item_id').eq('id', chatId).single();
       if (match) {
@@ -406,7 +424,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await loadItems();
       }
     }
-    setChats(prev => prev.map(c => c.id === chatId ? { ...c, isClosed: true } : c));
+    setChats(prev => prev.map(c => c.id === chatId ? { ...c, isClosed: true, sellerMarkedSold: false } : c));
   }
 
   async function submitRating(chatId: string, score: number, review: string, role: 'buyer' | 'seller') {
@@ -461,6 +479,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       respondToRequest,
       sendMessage,
       markSold,
+      buyerConfirmSold,
       submitRating,
       upgradePremium,
     }}>

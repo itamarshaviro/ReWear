@@ -34,7 +34,7 @@ function Bubble({ msg }: { msg: ChatMessage }) {
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { chats, sendMessage, markSold } = useApp();
+  const { chats, sendMessage, markSold, buyerConfirmSold } = useApp();
   const [text, setText] = useState('');
   const listRef = useRef<FlatList>(null);
 
@@ -64,13 +64,24 @@ export default function ChatScreen() {
   function handleMarkSold() {
     Alert.alert(
       'סמן כנמכר',
-      `האם לסמן את "${chat!.itemName}" כנמכר ולעבור לדירוג?`,
+      `לסמן את "${chat!.itemName}" כנמכר? הקונה יצטרך לאשר לפני שהפריט יוסר.`,
+      [
+        { text: 'ביטול', style: 'cancel' },
+        { text: 'כן, שלח לאישור', onPress: () => markSold(chat!.id) },
+      ]
+    );
+  }
+
+  function handleBuyerConfirm() {
+    Alert.alert(
+      'אישור רכישה',
+      `לאשר שרכשת את "${chat!.itemName}"?`,
       [
         { text: 'ביטול', style: 'cancel' },
         {
-          text: 'כן, נמכר!',
+          text: 'כן, קניתי!',
           onPress: () => {
-            markSold(chat!.id);
+            buyerConfirmSold(chat!.id);
             router.push(`/rating/${chat!.id}`);
           },
         },
@@ -90,14 +101,27 @@ export default function ChatScreen() {
         </View>
         <View style={styles.headerRight}>
           <Image source={{ uri: chat.itemImage }} style={styles.headerThumb} contentFit="cover" />
-          {!chat.isClosed && (
+          {!chat.isClosed && chat.isSeller && !chat.sellerMarkedSold && (
             <TouchableOpacity style={styles.soldBtn} onPress={handleMarkSold} activeOpacity={0.8}>
               <Text style={styles.soldBtnText}>נמכר</Text>
             </TouchableOpacity>
           )}
+          {!chat.isClosed && chat.isSeller && chat.sellerMarkedSold && (
+            <View style={styles.soldPendingBadge}>
+              <Text style={styles.soldPendingText}>ממתין לאישור</Text>
+            </View>
+          )}
         </View>
       </View>
 
+      {!chat.isClosed && !chat.isSeller && chat.sellerMarkedSold && (
+        <View style={styles.confirmBanner}>
+          <Text style={styles.confirmBannerText}>📦 המוכר סימן שהפריט נמכר לך. אנא אשר/י.</Text>
+          <TouchableOpacity style={styles.confirmBtn} onPress={handleBuyerConfirm} activeOpacity={0.85}>
+            <Text style={styles.confirmBtnText}>אישור רכישה ✓</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       {chat.isClosed && (
         <View style={styles.closedBanner}>
           <Text style={styles.closedBannerText}>✅ עסקה הושלמה</Text>
@@ -159,6 +183,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 5,
   },
   soldBtnText: { fontSize: 11, fontWeight: '800', color: '#fff' },
+  soldPendingBadge: {
+    backgroundColor: '#FEF3C7', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4,
+  },
+  soldPendingText: { fontSize: 10, fontWeight: '700', color: '#D97706' },
+  confirmBanner: {
+    backgroundColor: '#EEF2FF', paddingHorizontal: 16, paddingVertical: 12,
+    gap: 10,
+  },
+  confirmBannerText: { fontSize: 13, fontWeight: '600', color: '#3730A3', textAlign: 'center' },
+  confirmBtn: {
+    backgroundColor: '#6366F1', borderRadius: 12, paddingVertical: 12, alignItems: 'center',
+  },
+  confirmBtnText: { fontSize: 15, fontWeight: '800', color: '#fff' },
   closedBanner: {
     backgroundColor: '#D1FAE5', paddingHorizontal: 20, paddingVertical: 10,
     flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',

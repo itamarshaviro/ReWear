@@ -80,7 +80,7 @@ export type InterestRequest = {
   itemName: string;
   itemImage: string;
   buyerName: string;
-  status: 'pending' | 'accepted' | 'declined';
+  status: 'pending' | 'accepted' | 'declined' | 'on_hold';
   createdAt: string;
 };
 
@@ -99,6 +99,8 @@ export type Chat = {
   otherPartyName: string;
   messages: ChatMessage[];
   isClosed?: boolean;
+  isSeller?: boolean;
+  sellerMarkedSold?: boolean;
 };
 
 export type Rating = {

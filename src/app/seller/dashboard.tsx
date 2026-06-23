@@ -24,9 +24,10 @@ function ListingCard({ item }: { item: ClothingItem }) {
   );
 }
 
-function RequestCard({ request, onAccept, onDecline }: {
+function RequestCard({ request, onAccept, onHold, onDecline }: {
   request: InterestRequest;
   onAccept: () => void;
+  onHold: () => void;
   onDecline: () => void;
 }) {
   if (request.status !== 'pending') return null;
@@ -35,17 +36,20 @@ function RequestCard({ request, onAccept, onDecline }: {
       <View style={styles.requestTop}>
         <Image source={{ uri: request.itemImage }} style={styles.requestThumb} contentFit="cover" />
         <View style={styles.requestInfo}>
-          <Text style={styles.requestTitle}>יש מעוניין!</Text>
+          <Text style={styles.requestTitle}>יש מעוניין! 👀</Text>
           <Text style={styles.requestItem} numberOfLines={1}>{request.itemName}</Text>
           <Text style={styles.requestQuestion}>הפריט עדיין זמין?</Text>
         </View>
       </View>
       <View style={styles.requestActions}>
         <TouchableOpacity style={styles.declineBtn} onPress={onDecline} activeOpacity={0.8}>
-          <Text style={styles.declineBtnText}>לא, נמכר</Text>
+          <Text style={styles.declineBtnText}>לא רלוונטי</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.holdBtn} onPress={onHold} activeOpacity={0.8}>
+          <Text style={styles.holdBtnText}>תפוס כרגע</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.acceptBtn} onPress={onAccept} activeOpacity={0.8}>
-          <Text style={styles.acceptBtnText}>כן, פנוי! 💬</Text>
+          <Text style={styles.acceptBtnText}>פנוי! 💬</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -90,12 +94,9 @@ export default function DashboardScreen() {
   const pending = requests.filter(r => r.status === 'pending');
   const acceptedChats = chats;
 
-  function handleAccept(requestId: string) {
-    respondToRequest(requestId, true);
-  }
-  function handleDecline(requestId: string) {
-    respondToRequest(requestId, false);
-  }
+  function handleAccept(requestId: string) { respondToRequest(requestId, 'accept'); }
+  function handleHold(requestId: string)   { respondToRequest(requestId, 'hold'); }
+  function handleDecline(requestId: string){ respondToRequest(requestId, 'decline'); }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -133,6 +134,7 @@ export default function DashboardScreen() {
                 key={req.id}
                 request={req}
                 onAccept={() => handleAccept(req.id)}
+                onHold={() => handleHold(req.id)}
                 onDecline={() => handleDecline(req.id)}
               />
             ))}
@@ -232,17 +234,22 @@ const styles = StyleSheet.create({
   requestTitle: { fontSize: 15, fontWeight: '800', color: '#6366F1', textAlign: 'right' },
   requestItem: { fontSize: 14, fontWeight: '600', color: '#111827', textAlign: 'right' },
   requestQuestion: { fontSize: 13, color: '#6B7280', textAlign: 'right' },
-  requestActions: { flexDirection: 'row', gap: 10 },
+  requestActions: { flexDirection: 'row', gap: 8 },
   declineBtn: {
     flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center',
-    borderWidth: 1.5, borderColor: '#E5E7EB', backgroundColor: '#fff',
+    borderWidth: 1.5, borderColor: '#FCA5A5', backgroundColor: '#FEF2F2',
   },
-  declineBtnText: { fontSize: 14, fontWeight: '700', color: '#6B7280' },
+  declineBtnText: { fontSize: 13, fontWeight: '700', color: '#EF4444' },
+  holdBtn: {
+    flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center',
+    borderWidth: 1.5, borderColor: '#FCD34D', backgroundColor: '#FFFBEB',
+  },
+  holdBtnText: { fontSize: 13, fontWeight: '700', color: '#D97706' },
   acceptBtn: {
     flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center',
     backgroundColor: '#6366F1',
   },
-  acceptBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  acceptBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
   // Chat card
   chatCard: {
     backgroundColor: '#fff', borderRadius: 16, flexDirection: 'row-reverse',
