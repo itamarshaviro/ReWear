@@ -17,6 +17,41 @@ import { useApp } from '@/context/app-context';
 import type { Condition } from '@/data/mock';
 import { CATEGORY_INFO, CONDITIONS, ALL_SIZES } from '@/data/mock';
 
+function SizeDropdown({ value, onChange }: { value: string; onChange: (s: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <View>
+      <TouchableOpacity
+        style={styles.dropdownTrigger}
+        onPress={() => setOpen(o => !o)}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.dropdownArrow}>{open ? '▲' : '▼'}</Text>
+        <Text style={[styles.dropdownValue, !value && styles.dropdownPlaceholder]}>
+          {value || 'בחר מידה'}
+        </Text>
+      </TouchableOpacity>
+      {open && (
+        <View style={styles.dropdownList}>
+          <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator={false} nestedScrollEnabled>
+            {ALL_SIZES.map((s, i) => (
+              <TouchableOpacity
+                key={s}
+                style={[styles.dropdownItem, i < ALL_SIZES.length - 1 && styles.dropdownItemBorder, value === s && styles.dropdownItemActive]}
+                onPress={() => { onChange(s); setOpen(false); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.dropdownItemText, value === s && styles.dropdownItemTextActive]}>{s}</Text>
+                {value === s && <Text style={styles.dropdownCheck}>✓</Text>}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+    </View>
+  );
+}
+
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <View style={styles.field}>
@@ -189,18 +224,7 @@ export default function CompleteScreen() {
 
           {/* Size */}
           <Field label="מידה" required>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sizeScroll}>
-              {ALL_SIZES.map(s => (
-                <TouchableOpacity
-                  key={s}
-                  style={[styles.sizeChip, size === s && styles.sizeChipActive]}
-                  onPress={() => setSize(s)}
-                  activeOpacity={0.75}
-                >
-                  <Text style={[styles.sizeChipText, size === s && styles.sizeChipTextActive]}>{s}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            <SizeDropdown value={size} onChange={setSize} />
           </Field>
 
           {/* Location */}
@@ -284,14 +308,29 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   radioInner: { width: 10, height: 10, borderRadius: 5 },
-  sizeScroll: { gap: 8, paddingVertical: 2 },
-  sizeChip: {
-    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 100,
-    backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#E5E7EB',
+  dropdownTrigger: {
+    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#fff', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
+    borderWidth: 1.5, borderColor: '#E5E7EB',
   },
-  sizeChipActive: { backgroundColor: '#6366F1', borderColor: '#6366F1' },
-  sizeChipText: { fontSize: 14, fontWeight: '600', color: '#374151' },
-  sizeChipTextActive: { color: '#fff' },
+  dropdownValue: { fontSize: 16, color: '#111827', fontWeight: '600' },
+  dropdownPlaceholder: { color: '#9CA3AF', fontWeight: '400' },
+  dropdownArrow: { fontSize: 11, color: '#6366F1', fontWeight: '700' },
+  dropdownList: {
+    backgroundColor: '#fff', borderRadius: 14, borderWidth: 1.5, borderColor: '#6366F1',
+    marginTop: 6, overflow: 'hidden',
+    shadowColor: '#6366F1', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12, shadowRadius: 12, elevation: 6,
+  },
+  dropdownItem: {
+    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 13, paddingHorizontal: 16,
+  },
+  dropdownItemBorder: { borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  dropdownItemActive: { backgroundColor: '#EEF2FF' },
+  dropdownItemText: { fontSize: 15, color: '#374151', fontWeight: '500' },
+  dropdownItemTextActive: { color: '#6366F1', fontWeight: '700' },
+  dropdownCheck: { fontSize: 14, color: '#6366F1', fontWeight: '800' },
   limitRow: { alignItems: 'flex-end' },
   limitText: { fontSize: 13, color: '#9CA3AF' },
   upgradeLink: { color: '#6366F1', fontWeight: '700' },
