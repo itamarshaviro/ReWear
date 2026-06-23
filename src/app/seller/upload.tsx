@@ -219,7 +219,7 @@ export default function UploadScreen() {
           <Text style={styles.pickTitle}>{qualityError ? 'נסה שוב' : 'הוסף תמונה של הפריט'}</Text>
           <Text style={styles.pickSub}>{qualityError ? 'בחר תמונה חדשה ואנו נבדוק שוב' : 'ה-AI ישפר את התמונה ויזהה פרטים אוטומטית'}</Text>
 
-          {preLabel && (
+          {!!preLabel && (
             <View style={styles.preSelBadge}>
               <Text style={styles.preSelText}>
                 {preGender === 'men' ? '👨 גברים' : '👩 נשים'} · {preLabel}
