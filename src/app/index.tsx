@@ -11,8 +11,12 @@ export default function HomeScreen() {
   const { user, isLoading } = useAuth();
   const { allListings } = useApp();
 
-  // Wait for session check before redirecting — prevents flicker when
-  // returning via magic link (Supabase session exists but user state not yet set)
+  const matchCount = useMemo(() => {
+    const brands = user?.preferences?.brands ?? [];
+    if (!brands.length) return 0;
+    return allListings.filter(item => brands.includes(item.brand)).length;
+  }, [allListings, user?.preferences?.brands]);
+
   if (isLoading) {
     return (
       <View style={styles.loadingScreen}>
@@ -25,14 +29,6 @@ export default function HomeScreen() {
   if (!user) {
     return <Redirect href="/auth" />;
   }
-
-  // Count items matching buyer's favorite brands
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const matchCount = useMemo(() => {
-    const brands = user.preferences?.brands ?? [];
-    if (!brands.length) return 0;
-    return allListings.filter(item => brands.includes(item.brand)).length;
-  }, [allListings, user.preferences?.brands]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
