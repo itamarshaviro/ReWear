@@ -25,10 +25,10 @@ const CATEGORIES: CategoryDef[] = [
   { id: 'womens-tops',    label: 'גופיות נשים',      emoji: '🎽' },
   { id: 'mens-shoes',     label: 'נעלי גברים',       emoji: '👟' },
   { id: 'womens-shoes',   label: 'נעלי נשים',        emoji: '👠' },
-  { id: 'womens-dresses', label: 'שמלות נשים',       emoji: '👗' },
   { id: 'mens-winter',    label: 'ביגוד חורף גברים', emoji: '🧥', subs: WINTER_MENS_SUBS },
   { id: 'womens-winter',  label: 'ביגוד חורף נשים',  emoji: '🧥', subs: WINTER_WOMENS_SUBS },
   { id: 'accessories',    label: 'אביזרים',           emoji: '👜', subs: ACCESSORIES_SUBS },
+  { id: 'womens-dresses', label: 'שמלות נשים',       emoji: '👗' },
 ];
 
 function navigate(category: Category) {
