@@ -97,8 +97,8 @@ export default function MyItemsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace('/seller/dashboard')} style={styles.backBtn}>
-          <Text style={styles.backText}>→</Text>
+        <TouchableOpacity onPress={() => router.replace('/seller/dashboard')} style={styles.backBtn} activeOpacity={0.7}>
+          <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.title}>הפריטים שלי</Text>
         <TouchableOpacity onPress={() => router.push('/seller/upload')} style={styles.addBtn}>
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingVertical: 12,
   },
-  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', transform: [{ scaleX: -1 }] },
+  backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   backText: { fontSize: 22, color: '#6366F1', fontWeight: '700' },
   title: { fontSize: 18, fontWeight: '800', color: '#111827' },
   addBtn: { backgroundColor: '#EEF2FF', borderRadius: 100, paddingHorizontal: 14, paddingVertical: 7 },
