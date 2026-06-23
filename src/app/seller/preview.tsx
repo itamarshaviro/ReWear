@@ -33,7 +33,7 @@ export default function PreviewScreen() {
           <Text style={styles.successSub}>הפריט שלך פורסם וכבר זמין לקונים 🎉</Text>
           <TouchableOpacity
             style={styles.successPrimaryBtn}
-            onPress={() => router.replace('/seller/dashboard')}
+            onPress={() => router.replace({ pathname: '/seller/dashboard', params: { uploaded: '1' } })}
             activeOpacity={0.85}
           >
             <Text style={styles.successPrimaryBtnText}>ראה את הפריטים שלי 👗</Text>

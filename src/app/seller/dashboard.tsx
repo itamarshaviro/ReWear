@@ -1,7 +1,8 @@
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useApp } from '@/context/app-context';
 import { CONDITION_LABELS } from '@/data/mock';
 import type { InterestRequest, Chat, ClothingItem } from '@/data/mock';
@@ -74,6 +75,17 @@ function ChatCard({ chat }: { chat: Chat }) {
 
 export default function DashboardScreen() {
   const { myListings, requests, chats, respondToRequest, isPremium, upgradePremium, listingCount, limit } = useApp();
+  const { uploaded } = useLocalSearchParams<{ uploaded?: string }>();
+  const toastAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (uploaded !== '1') return;
+    Animated.sequence([
+      Animated.timing(toastAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+      Animated.delay(2800),
+      Animated.timing(toastAnim, { toValue: 0, duration: 350, useNativeDriver: true }),
+    ]).start();
+  }, [uploaded]);
 
   const pending = requests.filter(r => r.status === 'pending');
   const acceptedChats = chats;
@@ -87,6 +99,12 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Animated.View style={[styles.toast, {
+        opacity: toastAnim,
+        transform: [{ translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [-60, 0] }) }],
+      }]}>
+        <Text style={styles.toastText}>✅ הפריט הועלה בהצלחה ומופיע בדשבורד!</Text>
+      </Animated.View>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.replace('/')} style={styles.backBtn}>
           <Text style={styles.backText}>→</Text>
@@ -161,6 +179,13 @@ export default function DashboardScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F7FF' },
+  toast: {
+    position: 'absolute', top: 60, left: 16, right: 16, zIndex: 99,
+    backgroundColor: '#22C55E', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18,
+    shadowColor: '#22C55E', shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3, shadowRadius: 12, elevation: 10,
+  },
+  toastText: { fontSize: 15, fontWeight: '700', color: '#fff', textAlign: 'center' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingVertical: 12,
