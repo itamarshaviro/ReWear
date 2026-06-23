@@ -97,7 +97,7 @@ export default function MyItemsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.replace('/seller/dashboard')} style={styles.backBtn}>
           <Text style={styles.backText}>→</Text>
         </TouchableOpacity>
         <Text style={styles.title}>הפריטים שלי</Text>
