@@ -1,12 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
-  Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View,
+  Platform, StyleSheet, Text, TouchableOpacity, View, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/auth-context';
-import type { BuyerPreferences } from '@/context/auth-context';
 import { useApp } from '@/context/app-context';
 import { Stars } from '@/components/stars';
 
@@ -18,16 +17,6 @@ const DEMO_REVIEWS = [
   { id: 'r3', score: 5, review: 'הגיב מהר, היה נחמד וסבלני. בהחלט אקנה שוב.', reviewer: 'אמיר ש.', date: '28.05.25' },
 ];
 
-const POPULAR_BRANDS = [
-  'Nike', 'Adidas', 'Zara', 'H&M', 'Mango', "Levi's",
-  'Puma', 'Tommy Hilfiger', 'Ralph Lauren', 'Calvin Klein',
-  'New Balance', 'Converse', 'Vans', 'Pull&Bear', 'SHEIN',
-  'Rip Curl', 'Billabong', 'The North Face', 'Uniqlo', 'GAP',
-];
-
-const TOP_SIZES    = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-const BOTTOM_SIZES = ['26', '28', '30', '32', '34', '36', '38'];
-const SHOE_SIZES   = ['36', '37', '38', '39', '40', '41', '42', '43', '44'];
 
 type ProfileTab = 'seller' | 'buyer';
 
@@ -75,61 +64,6 @@ function TrustBar({ score }: { score: number }) {
   );
 }
 
-function BrandDropdown({ selected, onToggle }: { selected: string[]; onToggle: (b: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const label = selected.length === 0
-    ? 'בחר מותגים...'
-    : selected.length === 1
-      ? selected[0]
-      : `${selected.length} מותגים נבחרו`;
-
-  return (
-    <View>
-      <TouchableOpacity style={styles.ddTrigger} onPress={() => setOpen(o => !o)} activeOpacity={0.8}>
-        <Text style={styles.ddArrow}>{open ? '▲' : '▼'}</Text>
-        <Text style={[styles.ddLabel, selected.length > 0 && styles.ddLabelActive]} numberOfLines={1}>
-          {label}
-        </Text>
-      </TouchableOpacity>
-      {open && (
-        <View style={styles.ddList}>
-          {POPULAR_BRANDS.map(brand => {
-            const on = selected.includes(brand);
-            return (
-              <TouchableOpacity key={brand} style={styles.ddItem} onPress={() => onToggle(brand)} activeOpacity={0.7}>
-                <View style={[styles.ddCheck, on && styles.ddCheckOn]}>
-                  {on && <Text style={styles.ddCheckMark}>✓</Text>}
-                </View>
-                <Text style={[styles.ddItemText, on && styles.ddItemTextOn]}>{brand}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
-    </View>
-  );
-}
-
-function SizeGroup({ label, sizes, selected, onSelect }: {
-  label: string; sizes: string[]; selected: string; onSelect: (s: string) => void;
-}) {
-  return (
-    <View style={styles.sizeGroup}>
-      <Text style={styles.sizeGroupLabel}>{label}</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sizeRow}>
-        {sizes.map(s => (
-          <TouchableOpacity
-            key={s}
-            style={[styles.sizeBtn, selected === s && styles.sizeBtnActive]}
-            onPress={() => onSelect(s)}
-          >
-            <Text style={[styles.sizeBtnText, selected === s && styles.sizeBtnTextActive]}>{s}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
-  );
-}
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 
@@ -139,12 +73,7 @@ export default function ProfileScreen() {
 
   const [tab, setTab] = useState<ProfileTab>('seller');
 
-  // Buyer preferences local state (initialized from user.preferences)
-  const [selBrands, setSelBrands] = useState<string[]>(user?.preferences?.brands ?? []);
-  const [topSize,    setTopSize]    = useState(user?.preferences?.topSize    ?? '');
-  const [bottomSize, setBottomSize] = useState(user?.preferences?.bottomSize ?? '');
-  const [shoeSize,   setShoeSize]   = useState(user?.preferences?.shoeSize   ?? '');
-  const [prefSaved,  setPrefSaved]  = useState(false);
+  const selBrands = user?.preferences?.brands ?? [];
 
   useEffect(() => {
     if (!user) router.replace('/auth/register');
@@ -177,19 +106,6 @@ export default function ProfileScreen() {
     if (!selBrands.length) return [];
     return allListings.filter(item => selBrands.includes(item.brand)).slice(0, 6);
   }, [allListings, selBrands]);
-
-  function toggleBrand(brand: string) {
-    setSelBrands(prev =>
-      prev.includes(brand) ? prev.filter(b => b !== brand) : [...prev, brand]
-    );
-    setPrefSaved(false);
-  }
-
-  function savePreferences() {
-    const prefs: BuyerPreferences = { brands: selBrands, topSize, bottomSize, shoeSize };
-    updatePreferences(prefs);
-    setPrefSaved(true);
-  }
 
   function handleLogout() {
     const confirmed = Platform.OS === 'web'
@@ -304,28 +220,21 @@ export default function ProfileScreen() {
         {/* ── BUYER TAB ── */}
         {tab === 'buyer' && (
           <>
-            {/* Brands */}
+            {/* Preferences summary + edit button */}
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>מותגים אהובים</Text>
-              <Text style={styles.cardSub}>בחר מותגים ותקבל התראה כשעולה פריט מתאים</Text>
-              <BrandDropdown selected={selBrands} onToggle={toggleBrand} />
+              <Text style={styles.cardTitle}>העדפות קנייה</Text>
+              {selBrands.length > 0 ? (
+                <Text style={styles.cardSub}>
+                  {selBrands.length === 1 ? selBrands[0] : `${selBrands.length} מותגים נבחרו`}
+                  {(user?.preferences?.topSizes?.length ?? 0) > 0 && ` · ${user!.preferences!.topSizes.join(', ')}`}
+                </Text>
+              ) : (
+                <Text style={styles.cardSub}>לא הוגדרו העדפות עדיין</Text>
+              )}
+              <TouchableOpacity style={styles.editPrefBtn} onPress={() => router.push('/profile/preferences')} activeOpacity={0.85}>
+                <Text style={styles.editPrefBtnText}>{selBrands.length > 0 ? 'ערוך העדפות ←' : 'הגדר העדפות ←'}</Text>
+              </TouchableOpacity>
             </View>
-
-            {/* Sizes */}
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>המידות שלי</Text>
-              <SizeGroup label="חולצות / ג'קטים" sizes={TOP_SIZES}    selected={topSize}    onSelect={s => { setTopSize(s);    setPrefSaved(false); }} />
-              <SizeGroup label="מכנסיים"          sizes={BOTTOM_SIZES} selected={bottomSize} onSelect={s => { setBottomSize(s); setPrefSaved(false); }} />
-              <SizeGroup label="נעליים"            sizes={SHOE_SIZES}   selected={shoeSize}   onSelect={s => { setShoeSize(s);   setPrefSaved(false); }} />
-            </View>
-
-            {/* Save button */}
-            <TouchableOpacity
-              style={[styles.saveBtn, prefSaved && styles.saveBtnDone]}
-              onPress={savePreferences}
-            >
-              <Text style={styles.saveBtnText}>{prefSaved ? '✓ העדפות נשמרו' : 'שמור העדפות'}</Text>
-            </TouchableOpacity>
 
             {/* Matched items */}
             {matchedItems.length > 0 && (
@@ -343,11 +252,7 @@ export default function ProfileScreen() {
                       <Text style={styles.matchName} numberOfLines={1}>{item.name}</Text>
                       <Text style={styles.matchBrand}>{item.brand} · ₪{item.price}</Text>
                     </View>
-                    <Image
-                      source={{ uri: item.imageUrl }}
-                      style={styles.matchImage}
-                      contentFit="cover"
-                    />
+                    <Image source={{ uri: item.imageUrl }} style={styles.matchImage} contentFit="cover" />
                   </TouchableOpacity>
                 ))}
               </View>
@@ -356,7 +261,7 @@ export default function ProfileScreen() {
             {selBrands.length === 0 && (
               <View style={styles.emptyMatches}>
                 <Text style={styles.emptyMatchesEmoji}>🔔</Text>
-                <Text style={styles.emptyMatchesText}>בחר מותגים למעלה וקבל התראות{'\n'}כשפריטים מתאימים עולים לאוויר</Text>
+                <Text style={styles.emptyMatchesText}>הגדר העדפות וקבל התראות{'\n'}כשפריטים מתאימים עולים לאוויר</Text>
               </View>
             )}
           </>
@@ -449,52 +354,11 @@ const styles = StyleSheet.create({
   reviewDate: { fontSize: 11, color: '#9CA3AF' },
   reviewText: { fontSize: 13, color: '#4B5563', textAlign: 'right', lineHeight: 18 },
 
-  // Brand dropdown
-  ddTrigger: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
-    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#F9FAFB',
+  // Edit preferences button
+  editPrefBtn: {
+    backgroundColor: '#EEF2FF', borderRadius: 12, paddingVertical: 12, alignItems: 'center',
   },
-  ddLabel: { fontSize: 14, color: '#9CA3AF', flex: 1, textAlign: 'right' },
-  ddLabelActive: { color: '#111827', fontWeight: '700' },
-  ddArrow: { fontSize: 11, color: '#9CA3AF', marginLeft: 8 },
-  ddList: {
-    marginTop: 4, borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
-    overflow: 'hidden', backgroundColor: '#fff',
-  },
-  ddItem: {
-    flexDirection: 'row-reverse', alignItems: 'center', gap: 12,
-    paddingHorizontal: 14, paddingVertical: 13,
-    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
-  },
-  ddCheck: {
-    width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: '#D1D5DB',
-    alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff',
-  },
-  ddCheckOn: { backgroundColor: '#6366F1', borderColor: '#6366F1' },
-  ddCheckMark: { fontSize: 13, color: '#fff', fontWeight: '800' },
-  ddItemText: { fontSize: 14, color: '#374151', flex: 1, textAlign: 'right' },
-  ddItemTextOn: { color: '#6366F1', fontWeight: '700' },
-
-  // Sizes
-  sizeGroup: { gap: 6 },
-  sizeGroupLabel: { fontSize: 12, fontWeight: '700', color: '#6B7280', textAlign: 'right' },
-  sizeRow: { flexDirection: 'row-reverse', gap: 6, paddingVertical: 2 },
-  sizeBtn: {
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
-    borderWidth: 1.5, borderColor: '#E5E7EB', backgroundColor: '#fff',
-  },
-  sizeBtnActive: { backgroundColor: '#6366F1', borderColor: '#6366F1' },
-  sizeBtnText: { fontSize: 13, fontWeight: '600', color: '#374151' },
-  sizeBtnTextActive: { color: '#fff', fontWeight: '800' },
-
-  // Save button
-  saveBtn: {
-    backgroundColor: '#6366F1', borderRadius: 14, paddingVertical: 16, alignItems: 'center',
-    shadowColor: '#6366F1', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 10, elevation: 5,
-  },
-  saveBtnDone: { backgroundColor: '#22C55E', shadowColor: '#22C55E' },
-  saveBtnText: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  editPrefBtnText: { fontSize: 14, fontWeight: '700', color: '#6366F1' },
 
   // Matched items
   matchHeader: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },

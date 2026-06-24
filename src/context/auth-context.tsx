@@ -4,9 +4,9 @@ import type { User } from '@supabase/supabase-js';
 
 export type BuyerPreferences = {
   brands: string[];
-  topSize: string;
-  bottomSize: string;
-  shoeSize: string;
+  topSizes: string[];
+  bottomSizes: string[];
+  shoeSizes: string[];
 };
 
 export type AuthUser = {
