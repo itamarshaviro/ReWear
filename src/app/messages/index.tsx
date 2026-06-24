@@ -69,10 +69,10 @@ export default function MessagesScreen() {
   const pending = requests.filter(r => r.status === 'pending');
 
   function handleAccept(requestId: string) {
-    respondToRequest(requestId, true);
+    respondToRequest(requestId, 'accept');
   }
   function handleDecline(requestId: string) {
-    respondToRequest(requestId, false);
+    respondToRequest(requestId, 'decline');
   }
 
   const hasContent = pending.length > 0 || chats.length > 0;

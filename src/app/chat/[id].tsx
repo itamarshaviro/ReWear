@@ -92,7 +92,7 @@ export default function ChatScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/seller/dashboard')} style={styles.backBtn}>
           <Text style={styles.backText}>→</Text>
         </TouchableOpacity>
         <View style={styles.headerInfo}>

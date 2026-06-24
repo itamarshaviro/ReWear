@@ -28,6 +28,7 @@ type AppContextType = {
   markListingAsSold: (id: string) => Promise<void>;
   getItemStatus: (itemId: string) => ItemStatus;
   getLikesCount: (itemId: string) => number;
+  refreshRequests: () => Promise<void>;
   sendInterest: (item: ClothingItem) => Promise<void>;
   respondToRequest: (requestId: string, response: 'accept' | 'hold' | 'decline') => Promise<void>;
   sendMessage: (chatId: string, text: string, from: 'buyer' | 'seller') => Promise<void>;
@@ -220,14 +221,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!dbId) return;
     type MatchWithItem = {
       id: string; item_id: string; buyer_id: string; seller_id: string;
-      buyer_name: string; status: 'pending' | 'accepted' | 'declined' | 'on_hold'; created_at: string;
+      buyer_name: string; status: string; created_at: string;
       seller_marked_sold: boolean;
       items: { name: string; image_url: string | null; seller_name: string } | null;
     };
     const { data: matchesRaw } = await supabase
       .from('matches')
       .select('*, items(name, image_url, seller_name)')
-      .in('status', ['accepted', 'on_hold'])
+      .in('status', ['accepted', 'on_hold'] as ('accepted' | 'pending' | 'declined')[])
       .or(`seller_id.eq.${dbId},buyer_id.eq.${dbId}`)
       .order('created_at', { ascending: false });
     const matches = matchesRaw as unknown as MatchWithItem[] | null;
@@ -362,12 +363,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const newStatus = response === 'accept' ? 'accepted' : response === 'hold' ? 'on_hold' : 'declined';
 
     if (configured) {
-      await supabase.from('matches').update({ status: newStatus }).eq('id', requestId);
+      await supabase.from('matches').update({ status: newStatus as 'accepted' | 'declined' }).eq('id', requestId);
       if (dbId) {
         await supabase.from('messages').insert({ match_id: requestId, sender_id: dbId, text: msgText, is_read: false });
         if (response === 'accept' || response === 'hold') {
-          // Add chat to state immediately (optimistic) so navigation finds it right away
-          const req = requests.find(r => r.id === requestId);
+          // Find request in local state, or fetch from DB as fallback
+          let req = requests.find(r => r.id === requestId);
+          if (!req) {
+            type MatchRow = { id: string; item_id: string; buyer_name: string; status: string; items: { name: string; image_url: string | null } | null };
+            const { data } = await supabase
+              .from('matches')
+              .select('*, items(name, image_url)')
+              .eq('id', requestId)
+              .single();
+            const row = data as unknown as MatchRow | null;
+            if (row) {
+              req = {
+                id: row.id,
+                itemId: row.item_id,
+                itemName: row.items?.name ?? '',
+                itemImage: row.items?.image_url ?? '',
+                buyerName: row.buyer_name,
+                status: row.status as InterestRequest['status'],
+                createdAt: '',
+              };
+            }
+          }
           if (req) {
             const newChat: Chat = {
               id: requestId,
@@ -382,7 +403,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             };
             setChats(prev => [...prev.filter(c => c.id !== requestId), newChat]);
           }
-          loadChats(); // background refresh — don't await
+          loadChats(); // background refresh
         }
       }
       await loadRequests();
@@ -424,7 +445,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   async function markSold(chatId: string) {
     if (configured && dbId) {
-      await supabase.from('matches').update({ seller_marked_sold: true }).eq('id', chatId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('matches') as any).update({ seller_marked_sold: true }).eq('id', chatId);
       await supabase.from('messages').insert({
         match_id: chatId, sender_id: dbId,
         text: '📦 סימנתי שהפריט נמכר. אנא אשר/י את הרכישה כדי לסיים את העסקה.',
@@ -495,6 +517,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       markListingAsSold,
       getItemStatus,
       getLikesCount,
+      refreshRequests: loadRequests,
       sendInterest,
       respondToRequest,
       sendMessage,

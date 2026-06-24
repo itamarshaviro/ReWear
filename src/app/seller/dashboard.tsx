@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useApp } from '@/context/app-context';
 import { CONDITION_LABELS } from '@/data/mock';
 import type { InterestRequest, Chat, ClothingItem } from '@/data/mock';
@@ -78,9 +78,11 @@ function ChatCard({ chat }: { chat: Chat }) {
 }
 
 export default function DashboardScreen() {
-  const { myListings, requests, chats, respondToRequest, isPremium, upgradePremium, listingCount, limit } = useApp();
+  const { myListings, requests, chats, respondToRequest, isPremium, upgradePremium, listingCount, limit, refreshRequests } = useApp();
   const { uploaded } = useLocalSearchParams<{ uploaded?: string }>();
   const toastAnim = useRef(new Animated.Value(0)).current;
+
+  useFocusEffect(useCallback(() => { refreshRequests(); }, []));
 
   useEffect(() => {
     if (uploaded !== '1') return;
