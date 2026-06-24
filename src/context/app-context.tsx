@@ -220,14 +220,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!dbId) return;
     type MatchWithItem = {
       id: string; item_id: string; buyer_id: string; seller_id: string;
-      buyer_name: string; status: 'pending' | 'accepted' | 'declined'; created_at: string;
+      buyer_name: string; status: 'pending' | 'accepted' | 'declined' | 'on_hold'; created_at: string;
       seller_marked_sold: boolean;
       items: { name: string; image_url: string | null; seller_name: string } | null;
     };
     const { data: matchesRaw } = await supabase
       .from('matches')
       .select('*, items(name, image_url, seller_name)')
-      .eq('status', 'accepted')
+      .in('status', ['accepted', 'on_hold'])
       .or(`seller_id.eq.${dbId},buyer_id.eq.${dbId}`)
       .order('created_at', { ascending: false });
     const matches = matchesRaw as unknown as MatchWithItem[] | null;
@@ -357,7 +357,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   async function respondToRequest(requestId: string, response: 'accept' | 'hold' | 'decline') {
     const msgText =
       response === 'accept' ? 'היי! הפריט זמין, שמחים שמעניין אותך 😊' :
-      response === 'hold'   ? 'היי, כרגע יש מתעניין/ת אחר/ת בפריט. אעדכן אם יתפנה! 🤞' :
+      response === 'hold'   ? 'היי! מישהו אחר כרגע מתעניין בפריט ולכן בינתיים לא זמין. אם יהיה זמין בהמשך אעדכן אותך 🙏' :
                               'הפריט כבר לא זמין, מצטערים 😔';
     const newStatus = response === 'accept' ? 'accepted' : response === 'hold' ? 'on_hold' : 'declined';
 
@@ -365,7 +365,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await supabase.from('matches').update({ status: newStatus }).eq('id', requestId);
       if (dbId) {
         await supabase.from('messages').insert({ match_id: requestId, sender_id: dbId, text: msgText, is_read: false });
-        if (response === 'accept') await loadChats();
+        if (response === 'accept' || response === 'hold') await loadChats();
       }
       await loadRequests();
       return;

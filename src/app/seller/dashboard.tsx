@@ -94,9 +94,15 @@ export default function DashboardScreen() {
   const pending = requests.filter(r => r.status === 'pending');
   const acceptedChats = chats;
 
-  function handleAccept(requestId: string) { respondToRequest(requestId, 'accept'); }
-  function handleHold(requestId: string)   { respondToRequest(requestId, 'hold'); }
-  function handleDecline(requestId: string){ respondToRequest(requestId, 'decline'); }
+  async function handleAccept(requestId: string) {
+    await respondToRequest(requestId, 'accept');
+    router.push({ pathname: '/chat/[id]', params: { id: requestId } });
+  }
+  async function handleHold(requestId: string) {
+    await respondToRequest(requestId, 'hold');
+    router.push({ pathname: '/chat/[id]', params: { id: requestId } });
+  }
+  function handleDecline(requestId: string) { respondToRequest(requestId, 'decline'); }
 
   return (
     <SafeAreaView style={styles.container}>
