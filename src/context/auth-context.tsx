@@ -7,6 +7,8 @@ export type BuyerPreferences = {
   topSizes: string[];
   bottomSizes: string[];
   shoeSizes: string[];
+  minPrice: number;
+  maxPrice: number;
 };
 
 export type AuthUser = {

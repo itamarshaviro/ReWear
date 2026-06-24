@@ -75,6 +75,8 @@ function SizeGroup({ label, sizes, selected, onToggle }: {
   );
 }
 
+const PRICE_STEPS = [0, 20, 50, 100, 150, 200, 300, 500];
+
 export default function PreferencesScreen() {
   const { user, updatePreferences } = useAuth();
 
@@ -82,9 +84,22 @@ export default function PreferencesScreen() {
   const [topSizes,    setTopSizes]    = useState<string[]>(user?.preferences?.topSizes    ?? []);
   const [bottomSizes, setBottomSizes] = useState<string[]>(user?.preferences?.bottomSizes ?? []);
   const [shoeSizes,   setShoeSizes]   = useState<string[]>(user?.preferences?.shoeSizes   ?? []);
+  const [minPrice,    setMinPrice]    = useState(user?.preferences?.minPrice ?? 0);
+  const [maxPrice,    setMaxPrice]    = useState(user?.preferences?.maxPrice ?? 500);
+
+  function stepMin(dir: 1 | -1) {
+    const idx = PRICE_STEPS.indexOf(minPrice);
+    const next = PRICE_STEPS[Math.max(0, Math.min(idx + dir, PRICE_STEPS.length - 1))];
+    if (next < maxPrice) setMinPrice(next);
+  }
+  function stepMax(dir: 1 | -1) {
+    const idx = PRICE_STEPS.indexOf(maxPrice);
+    const next = PRICE_STEPS[Math.max(0, Math.min(idx + dir, PRICE_STEPS.length - 1))];
+    if (next > minPrice) setMaxPrice(next);
+  }
 
   function save() {
-    updatePreferences({ brands, topSizes, bottomSizes, shoeSizes });
+    updatePreferences({ brands, topSizes, bottomSizes, shoeSizes, minPrice, maxPrice });
     router.back();
   }
 
@@ -111,6 +126,30 @@ export default function PreferencesScreen() {
           <SizeGroup label="חולצות / ג׳קטים" sizes={TOP_SIZES}    selected={topSizes}    onToggle={s => setTopSizes(prev    => toggle(prev, s))} />
           <SizeGroup label="מכנסיים"           sizes={BOTTOM_SIZES} selected={bottomSizes} onToggle={s => setBottomSizes(prev => toggle(prev, s))} />
           <SizeGroup label="נעליים"             sizes={SHOE_SIZES}   selected={shoeSizes}   onToggle={s => setShoeSizes(prev   => toggle(prev, s))} />
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>טווח מחיר</Text>
+          <Text style={styles.cardSub}>הצג לי פריטים בטווח זה בלבד</Text>
+          <View style={styles.priceRow}>
+            <View style={styles.priceBox}>
+              <Text style={styles.priceBoxLabel}>עד</Text>
+              <View style={styles.priceControl}>
+                <TouchableOpacity style={styles.priceBtn} onPress={() => stepMax(1)}><Text style={styles.priceBtnText}>+</Text></TouchableOpacity>
+                <Text style={styles.priceValue}>₪{maxPrice === 500 ? '500+' : maxPrice}</Text>
+                <TouchableOpacity style={styles.priceBtn} onPress={() => stepMax(-1)}><Text style={styles.priceBtnText}>−</Text></TouchableOpacity>
+              </View>
+            </View>
+            <View style={styles.priceDivider} />
+            <View style={styles.priceBox}>
+              <Text style={styles.priceBoxLabel}>מ</Text>
+              <View style={styles.priceControl}>
+                <TouchableOpacity style={styles.priceBtn} onPress={() => stepMin(1)}><Text style={styles.priceBtnText}>+</Text></TouchableOpacity>
+                <Text style={styles.priceValue}>₪{minPrice}</Text>
+                <TouchableOpacity style={styles.priceBtn} onPress={() => stepMin(-1)}><Text style={styles.priceBtnText}>−</Text></TouchableOpacity>
+              </View>
+            </View>
+          </View>
         </View>
 
         <TouchableOpacity style={styles.saveBtn} onPress={save} activeOpacity={0.85}>
@@ -178,6 +217,19 @@ const styles = StyleSheet.create({
   sizeBtnOn: { backgroundColor: '#6366F1', borderColor: '#6366F1' },
   sizeBtnText: { fontSize: 13, fontWeight: '600', color: '#374151' },
   sizeBtnTextOn: { color: '#fff', fontWeight: '800' },
+
+  // Price range
+  priceRow: { flexDirection: 'row-reverse', gap: 12, alignItems: 'center' },
+  priceBox: { flex: 1, alignItems: 'center', gap: 8 },
+  priceBoxLabel: { fontSize: 13, fontWeight: '700', color: '#6B7280' },
+  priceControl: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  priceBtn: {
+    width: 36, height: 36, borderRadius: 10, backgroundColor: '#EEF2FF',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  priceBtnText: { fontSize: 20, fontWeight: '700', color: '#6366F1', lineHeight: 22 },
+  priceValue: { fontSize: 18, fontWeight: '800', color: '#111827', minWidth: 64, textAlign: 'center' },
+  priceDivider: { width: 1, height: 40, backgroundColor: '#E5E7EB' },
 
   // Save
   saveBtn: {
