@@ -64,14 +64,14 @@ function ChatCard({ chat }: { chat: Chat }) {
       onPress={() => router.push({ pathname: '/chat/[id]', params: { id: chat.id } })}
       activeOpacity={0.85}
     >
-      <Image source={{ uri: chat.itemImage }} style={styles.chatThumb} contentFit="cover" />
+      <View style={styles.chatRight}>
+        <Text style={styles.chatName}>{chat.otherPartyName}</Text>
+        <Image source={{ uri: chat.itemImage }} style={styles.chatThumb} contentFit="cover" />
+      </View>
       <View style={styles.chatInfo}>
-        <View style={styles.chatRow}>
-          <Text style={styles.chatTime}>{last?.timestamp ?? ''}</Text>
-          <Text style={styles.chatName}>{chat.otherPartyName}</Text>
-        </View>
         <Text style={styles.chatItem}>{chat.itemName}</Text>
         <Text style={styles.chatLast} numberOfLines={1}>{last?.text ?? ''}</Text>
+        <Text style={styles.chatTime}>{last?.timestamp ?? ''}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -265,13 +265,13 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07, shadowRadius: 8, elevation: 3,
   },
+  chatRight: { alignItems: 'center', gap: 6 },
   chatThumb: { width: 52, height: 52, borderRadius: 10 },
+  chatName: { fontSize: 13, fontWeight: '700', color: '#111827' },
   chatInfo: { flex: 1, gap: 3 },
-  chatRow: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' },
-  chatName: { fontSize: 14, fontWeight: '700', color: '#111827' },
-  chatTime: { fontSize: 11, color: '#9CA3AF' },
   chatItem: { fontSize: 12, color: '#6366F1', fontWeight: '600', textAlign: 'right' },
   chatLast: { fontSize: 13, color: '#6B7280', textAlign: 'right' },
+  chatTime: { fontSize: 11, color: '#9CA3AF', textAlign: 'right' },
   // Empty state
   emptyListings: { alignItems: 'center', paddingVertical: 32, gap: 10 },
   emptyEmoji: { fontSize: 48 },
