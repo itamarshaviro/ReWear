@@ -75,6 +75,41 @@ function TrustBar({ score }: { score: number }) {
   );
 }
 
+function BrandDropdown({ selected, onToggle }: { selected: string[]; onToggle: (b: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const label = selected.length === 0
+    ? 'בחר מותגים...'
+    : selected.length === 1
+      ? selected[0]
+      : `${selected.length} מותגים נבחרו`;
+
+  return (
+    <View>
+      <TouchableOpacity style={styles.ddTrigger} onPress={() => setOpen(o => !o)} activeOpacity={0.8}>
+        <Text style={styles.ddArrow}>{open ? '▲' : '▼'}</Text>
+        <Text style={[styles.ddLabel, selected.length > 0 && styles.ddLabelActive]} numberOfLines={1}>
+          {label}
+        </Text>
+      </TouchableOpacity>
+      {open && (
+        <View style={styles.ddList}>
+          {POPULAR_BRANDS.map(brand => {
+            const on = selected.includes(brand);
+            return (
+              <TouchableOpacity key={brand} style={styles.ddItem} onPress={() => onToggle(brand)} activeOpacity={0.7}>
+                <View style={[styles.ddCheck, on && styles.ddCheckOn]}>
+                  {on && <Text style={styles.ddCheckMark}>✓</Text>}
+                </View>
+                <Text style={[styles.ddItemText, on && styles.ddItemTextOn]}>{brand}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+}
+
 function SizeGroup({ label, sizes, selected, onSelect }: {
   label: string; sizes: string[]; selected: string; onSelect: (s: string) => void;
 }) {
@@ -273,20 +308,7 @@ export default function ProfileScreen() {
             <View style={styles.card}>
               <Text style={styles.cardTitle}>מותגים אהובים</Text>
               <Text style={styles.cardSub}>בחר מותגים ותקבל התראה כשעולה פריט מתאים</Text>
-              <View style={styles.brandGrid}>
-                {POPULAR_BRANDS.map(brand => {
-                  const on = selBrands.includes(brand);
-                  return (
-                    <TouchableOpacity
-                      key={brand}
-                      style={[styles.brandChip, on && styles.brandChipOn]}
-                      onPress={() => toggleBrand(brand)}
-                    >
-                      <Text style={[styles.brandChipText, on && styles.brandChipTextOn]}>{brand}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              <BrandDropdown selected={selBrands} onToggle={toggleBrand} />
             </View>
 
             {/* Sizes */}
@@ -427,15 +449,32 @@ const styles = StyleSheet.create({
   reviewDate: { fontSize: 11, color: '#9CA3AF' },
   reviewText: { fontSize: 13, color: '#4B5563', textAlign: 'right', lineHeight: 18 },
 
-  // Brands
-  brandGrid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
-  brandChip: {
-    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 100,
-    borderWidth: 1.5, borderColor: '#E5E7EB', backgroundColor: '#fff',
+  // Brand dropdown
+  ddTrigger: {
+    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
+    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#F9FAFB',
   },
-  brandChipOn: { backgroundColor: '#6366F1', borderColor: '#6366F1' },
-  brandChipText: { fontSize: 13, fontWeight: '600', color: '#374151' },
-  brandChipTextOn: { color: '#fff', fontWeight: '800' },
+  ddLabel: { fontSize: 14, color: '#9CA3AF', flex: 1, textAlign: 'right' },
+  ddLabelActive: { color: '#111827', fontWeight: '700' },
+  ddArrow: { fontSize: 11, color: '#9CA3AF', marginLeft: 8 },
+  ddList: {
+    marginTop: 4, borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
+    overflow: 'hidden', backgroundColor: '#fff',
+  },
+  ddItem: {
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 12,
+    paddingHorizontal: 14, paddingVertical: 13,
+    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+  },
+  ddCheck: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: '#D1D5DB',
+    alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff',
+  },
+  ddCheckOn: { backgroundColor: '#6366F1', borderColor: '#6366F1' },
+  ddCheckMark: { fontSize: 13, color: '#fff', fontWeight: '800' },
+  ddItemText: { fontSize: 14, color: '#374151', flex: 1, textAlign: 'right' },
+  ddItemTextOn: { color: '#6366F1', fontWeight: '700' },
 
   // Sizes
   sizeGroup: { gap: 6 },
