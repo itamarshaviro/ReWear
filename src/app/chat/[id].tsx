@@ -167,9 +167,9 @@ export default function ChatScreen() {
               onChangeText={setText}
               placeholder="הקלד הודעה..."
               textAlign="right"
-              multiline
               onSubmitEditing={send}
               returnKeyType="send"
+              blurOnSubmit={false}
             />
           </View>
         )}
