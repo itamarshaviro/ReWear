@@ -4,13 +4,14 @@ import {
   StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useRouter } from 'expo-router';
 import { useApp } from '@/context/app-context';
 
 const PREMIUM_PRICE = 20; // ₪ per month — change here to update everywhere
 
 export default function UpgradeScreen() {
   const { upgradePremium, isPremium } = useApp();
+  const nav = useRouter();
 
   const [cardNumber, setCardNumber] = useState('');
   const [cardName,   setCardName]   = useState('');
@@ -73,7 +74,7 @@ export default function UpgradeScreen() {
 
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <TouchableOpacity onPress={() => nav.canGoBack() ? nav.back() : nav.replace('/seller/dashboard')} style={styles.backBtn}>
               <Text style={styles.backText}>→</Text>
             </TouchableOpacity>
             <Text style={styles.headerTitle}>שדרוג לפרמיום</Text>
@@ -184,7 +185,7 @@ const styles = StyleSheet.create({
   scroll: { padding: 20, gap: 20, paddingBottom: 40 },
 
   header: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     marginBottom: 4,
   },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', transform: [{ scaleX: -1 }] },
