@@ -365,7 +365,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await supabase.from('matches').update({ status: newStatus }).eq('id', requestId);
       if (dbId) {
         await supabase.from('messages').insert({ match_id: requestId, sender_id: dbId, text: msgText, is_read: false });
-        if (response === 'accept' || response === 'hold') await loadChats();
+        if (response === 'accept' || response === 'hold') {
+          // Add chat to state immediately (optimistic) so navigation finds it right away
+          const req = requests.find(r => r.id === requestId);
+          if (req) {
+            const newChat: Chat = {
+              id: requestId,
+              itemId: req.itemId,
+              itemName: req.itemName,
+              itemImage: req.itemImage,
+              otherPartyName: req.buyerName,
+              isSeller: true,
+              sellerMarkedSold: false,
+              messages: [{ id: `msg-${Date.now()}`, text: msgText, from: 'seller', timestamp: ts() }],
+              isClosed: false,
+            };
+            setChats(prev => [...prev.filter(c => c.id !== requestId), newChat]);
+          }
+          loadChats(); // background refresh — don't await
+        }
       }
       await loadRequests();
       return;
