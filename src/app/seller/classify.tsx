@@ -22,16 +22,16 @@ type SellerCat = {
 
 const SELLER_CATS: SellerCat[] = [
   { id: 'mens-pants',     label: 'מכנסי גברים',      emoji: '👖', genders: ['men'] },
-  { id: 'womens-pants',   label: 'מכנסי נשים',       emoji: '👖', genders: ['women'] },
+  { id: 'womens-pants',   label: 'מכנסי נשים',       emoji: '🩳', genders: ['women'] },
   { id: 'mens-shirts',    label: 'חולצות גברים',     emoji: '👔', genders: ['men'] },
   { id: 'womens-shirts',  label: 'חולצות נשים',      emoji: '👚', genders: ['women'] },
   { id: 'mens-tops',      label: 'גופיות גברים',     emoji: '🎽', genders: ['men'] },
-  { id: 'womens-tops',    label: 'גופיות נשים',      emoji: '🎽', genders: ['women'] },
+  { id: 'womens-tops',    label: 'גופיות נשים',      emoji: '🩱', genders: ['women'] },
   { id: 'mens-shoes',     label: 'נעלי גברים',       emoji: '👟', genders: ['men'] },
   { id: 'womens-shoes',   label: 'נעלי נשים',        emoji: '👠', genders: ['women'] },
   { id: 'womens-dresses', label: 'שמלות נשים',       emoji: '👗', genders: ['women'] },
   { id: 'mens-winter',    label: 'ביגוד חורף גברים', emoji: '🧥', genders: ['men'],   subs: WINTER_MENS_SUBS },
-  { id: 'womens-winter',  label: 'ביגוד חורף נשים',  emoji: '🧥', genders: ['women'], subs: WINTER_WOMENS_SUBS },
+  { id: 'womens-winter',  label: 'ביגוד חורף נשים',  emoji: '🧣', genders: ['women'], subs: WINTER_WOMENS_SUBS },
   { id: 'accessories',    label: 'אביזרים',           emoji: '👜', genders: ['men', 'women'], subs: ACCESSORIES_SUBS },
 ];
 

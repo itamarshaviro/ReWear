@@ -141,15 +141,15 @@ export type AiDraft = {
 // Order matters: pairs render as (even index = right/men, odd index = left/women) with row-reverse
 export const CATEGORY_INFO: Record<Category, { label: string; emoji: string }> = {
   'mens-pants':     { label: 'מכנסי גברים',       emoji: '👖' },
-  'womens-pants':   { label: 'מכנסי נשים',        emoji: '👖' },
+  'womens-pants':   { label: 'מכנסי נשים',        emoji: '🩳' },
   'mens-shirts':    { label: 'חולצות גברים',      emoji: '👔' },
   'womens-shirts':  { label: 'חולצות נשים',       emoji: '👚' },
   'mens-tops':      { label: 'גופיות גברים',      emoji: '🎽' },
-  'womens-tops':    { label: 'גופיות נשים',       emoji: '🎽' },
+  'womens-tops':    { label: 'גופיות נשים',       emoji: '🩱' },
   'mens-shoes':     { label: 'נעלי גברים',        emoji: '👟' },
   'womens-shoes':   { label: 'נעלי נשים',         emoji: '👠' },
   'mens-winter':    { label: 'ביגוד חורף גברים',  emoji: '🧥' },
-  'womens-winter':  { label: 'ביגוד חורף נשים',   emoji: '🧥' },
+  'womens-winter':  { label: 'ביגוד חורף נשים',   emoji: '🧣' },
   'accessories':    { label: 'אביזרים',            emoji: '👜' },
   'womens-dresses': { label: 'שמלות נשים',        emoji: '👗' },
 };

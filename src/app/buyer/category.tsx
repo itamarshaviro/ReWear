@@ -18,15 +18,15 @@ type CategoryDef = {
 
 const CATEGORIES: CategoryDef[] = [
   { id: 'mens-pants',     label: 'מכנסי גברים',      emoji: '👖' },
-  { id: 'womens-pants',   label: 'מכנסי נשים',       emoji: '👖' },
+  { id: 'womens-pants',   label: 'מכנסי נשים',       emoji: '🩳' },
   { id: 'mens-shirts',    label: 'חולצות גברים',     emoji: '👔' },
   { id: 'womens-shirts',  label: 'חולצות נשים',      emoji: '👚' },
   { id: 'mens-tops',      label: 'גופיות גברים',     emoji: '🎽' },
-  { id: 'womens-tops',    label: 'גופיות נשים',      emoji: '🎽' },
+  { id: 'womens-tops',    label: 'גופיות נשים',      emoji: '🩱' },
   { id: 'mens-shoes',     label: 'נעלי גברים',       emoji: '👟' },
   { id: 'womens-shoes',   label: 'נעלי נשים',        emoji: '👠' },
   { id: 'mens-winter',    label: 'ביגוד חורף גברים', emoji: '🧥', subs: WINTER_MENS_SUBS },
-  { id: 'womens-winter',  label: 'ביגוד חורף נשים',  emoji: '🧥', subs: WINTER_WOMENS_SUBS },
+  { id: 'womens-winter',  label: 'ביגוד חורף נשים',  emoji: '🧣', subs: WINTER_WOMENS_SUBS },
   { id: 'accessories',    label: 'אביזרים',           emoji: '👜', subs: ACCESSORIES_SUBS },
   { id: 'womens-dresses', label: 'שמלות נשים',       emoji: '👗' },
 ];
