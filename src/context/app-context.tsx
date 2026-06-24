@@ -126,9 +126,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
             from: row.sender_id === dbId ? 'seller' : 'buyer',
             timestamp: new Date(row.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
           };
-          setChats(prev => prev.map(c =>
-            c.id === row.match_id ? { ...c, messages: [...c.messages, newMsg] } : c
-          ));
+          setChats(prev => prev.map(c => {
+            if (c.id !== row.match_id) return c;
+            if (c.messages.some(m => m.id === row.id)) return c; // already added by loadChats
+            return { ...c, messages: [...c.messages, newMsg] };
+          }));
         }
       )
       .subscribe();
