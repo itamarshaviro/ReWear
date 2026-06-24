@@ -100,7 +100,7 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Animated.View style={[styles.toast, {
+      <Animated.View pointerEvents="none" style={[styles.toast, {
         opacity: toastAnim,
         transform: [{ translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [-60, 0] }) }],
       }]}>
@@ -113,7 +113,7 @@ export default function DashboardScreen() {
         <Text style={styles.title}>הפריטים שלי</Text>
         <TouchableOpacity
           style={isPremium ? styles.premiumBadge : styles.freeBadge}
-          onPress={isPremium ? undefined : upgradePremium}
+          onPress={isPremium ? undefined : () => router.push('/seller/upgrade')}
         >
           <Text style={isPremium ? styles.premiumBadgeText : styles.freeBadgeText}>
             {isPremium ? '⭐ פרמיום' : `${listingCount}/${limit} · שדרג`}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { useApp } from '@/context/app-context';
 import {
   ACCESSORIES_SUBS,
   WINTER_MENS_SUBS,
@@ -35,10 +36,39 @@ const SELLER_CATS: SellerCat[] = [
 ];
 
 export default function ClassifyScreen() {
+  const { canAddMore, listingCount, limit } = useApp();
   const [gender, setGender]           = useState<Gender | null>(null);
   const [selectedCat, setSelectedCat] = useState<Category | null>(null);
   const [selectedSub, setSelectedSub] = useState<string | null>(null);
   const [expanded, setExpanded]       = useState<Category | null>(null);
+
+  if (!canAddMore) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <View style={{ width: 40 }} />
+          <Text style={styles.title}>הוספת פריט</Text>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Text style={styles.backText}>→</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.limitScreen}>
+          <Text style={styles.limitEmoji}>📦</Text>
+          <Text style={styles.limitTitle}>הגעת למגבלת הפריטים</Text>
+          <Text style={styles.limitSub}>
+            יש לך {listingCount} מתוך {limit} פריטים פעילים בחבילת החינם.{'\n'}
+            שדרג לפרמיום כדי להעלות עד 50 פריטים.
+          </Text>
+          <TouchableOpacity style={styles.limitUpgradeBtn} onPress={() => router.push('/seller/upgrade')} activeOpacity={0.85}>
+            <Text style={styles.limitUpgradeBtnText}>⭐ שדרג לפרמיום · ₪20/חודש</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.limitBackBtn} onPress={() => router.back()}>
+            <Text style={styles.limitBackBtnText}>חזור</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const visible = gender ? SELLER_CATS.filter(c => c.genders.includes(gender)) : [];
 
@@ -268,4 +298,17 @@ const styles = StyleSheet.create({
   },
   continueBtnDisabled: { backgroundColor: '#C4B5FD', shadowOpacity: 0.1 },
   continueBtnText: { fontSize: 17, fontWeight: '800', color: '#fff' },
+
+  limitScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 16 },
+  limitEmoji: { fontSize: 64 },
+  limitTitle: { fontSize: 22, fontWeight: '900', color: '#111827', textAlign: 'center' },
+  limitSub: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 22 },
+  limitUpgradeBtn: {
+    backgroundColor: '#6366F1', borderRadius: 16, paddingVertical: 18, paddingHorizontal: 32, alignItems: 'center',
+    width: '100%',
+    shadowColor: '#6366F1', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8,
+  },
+  limitUpgradeBtnText: { fontSize: 16, fontWeight: '800', color: '#fff' },
+  limitBackBtn: { paddingVertical: 12 },
+  limitBackBtnText: { fontSize: 14, fontWeight: '600', color: '#9CA3AF' },
 });

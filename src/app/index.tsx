@@ -77,7 +77,7 @@ export default function HomeScreen() {
         >
           <Text style={styles.roleEmoji}>👗</Text>
           <Text style={[styles.roleTitle, styles.darkText]}>אני מוכר</Text>
-          <Text style={[styles.roleDesc, styles.darkMuted]}>פרסם פריט בקלות{'\n'}עם AI שעושה הכל</Text>
+          <Text style={[styles.roleDesc, styles.darkMuted]}>פרסם פריט בקלות{'\n'}בעזרת AI</Text>
         </TouchableOpacity>
       </View>
 

@@ -17,7 +17,7 @@ export function TabBar() {
   const totalBadge = pendingCount + chats.length;
 
   const tabs: Tab[] = [
-    { path: '/',         label: 'גלה',     icon: '🏠' },
+    { path: '/',         label: 'בית',     icon: '🏠' },
     { path: '/map',      label: 'מפה',     icon: '🗺️' },
     { path: '/messages', label: 'הודעות',  icon: '💬', badge: totalBadge > 0 ? totalBadge : undefined },
   ];

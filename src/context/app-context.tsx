@@ -140,11 +140,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const channel = supabase
       .channel(`matches:${dbId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'matches' },
-        () => {
-          loadRequests();
-          loadChats();
-        }
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'matches', filter: `seller_id=eq.${dbId}` },
+        () => { loadRequests(); }
+      )
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'matches' },
+        () => { loadRequests(); loadChats(); }
       )
       .subscribe();
 

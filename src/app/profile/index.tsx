@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
@@ -111,7 +111,11 @@ export default function ProfileScreen() {
   const [shoeSize,   setShoeSize]   = useState(user?.preferences?.shoeSize   ?? '');
   const [prefSaved,  setPrefSaved]  = useState(false);
 
-  if (!user) { router.replace('/auth/register'); return null; }
+  useEffect(() => {
+    if (!user) router.replace('/auth/register');
+  }, [user]);
+
+  if (!user) return null;
 
   const fullName = `${user.firstName} ${user.lastName}`;
 
@@ -245,6 +249,16 @@ export default function ProfileScreen() {
                 <ReviewCard key={r.id} {...r} />
               ))}
             </View>
+
+            {!user.isPremium ? (
+              <TouchableOpacity style={styles.upgradeBtn} onPress={() => router.push('/seller/upgrade')}>
+                <Text style={styles.upgradeBtnText}>⭐ שדרג לפרמיום · ₪20/חודש</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.premiumActiveBadge}>
+                <Text style={styles.premiumActiveBadgeText}>⭐ פרמיום פעיל</Text>
+              </View>
+            )}
 
             <TouchableOpacity style={styles.dashboardBtn} onPress={() => router.push('/seller/dashboard')}>
               <Text style={styles.dashboardBtnText}>הדשבורד שלי →</Text>
@@ -464,6 +478,13 @@ const styles = StyleSheet.create({
   emptyMatchesText: { fontSize: 14, color: '#9CA3AF', textAlign: 'center', lineHeight: 20 },
 
   // Buttons
+  upgradeBtn: {
+    backgroundColor: '#6366F1', borderRadius: 14, paddingVertical: 16, alignItems: 'center',
+    shadowColor: '#6366F1', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 10, elevation: 5,
+  },
+  upgradeBtnText: { fontSize: 14, fontWeight: '800', color: '#fff' },
+  premiumActiveBadge: { backgroundColor: '#FEF9C3', borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+  premiumActiveBadgeText: { fontSize: 14, fontWeight: '700', color: '#92400E' },
   dashboardBtn: { backgroundColor: '#EEF2FF', borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
   dashboardBtnText: { fontSize: 14, fontWeight: '700', color: '#6366F1' },
   logoutBtn: { backgroundColor: '#FEF2F2', borderRadius: 14, paddingVertical: 15, alignItems: 'center' },

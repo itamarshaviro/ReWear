@@ -4,7 +4,7 @@ const CLOUD_NAME    = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME    ?? '';
 const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
 
 // e_improve: all-in-one color/contrast/saturation boost (free tier)
-const TRANSFORMS = ['e_improve', 'q_auto:best', 'f_auto'].join(',');
+const TRANSFORMS = ['a_exif', 'e_improve', 'q_auto:best', 'f_auto'].join(',');
 
 export function isCloudinaryConfigured(): boolean {
   const name   = (process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME    ?? '').trim();
