@@ -29,6 +29,7 @@ type AppContextType = {
   getItemStatus: (itemId: string) => ItemStatus;
   getLikesCount: (itemId: string) => number;
   refreshRequests: () => Promise<void>;
+  refreshChats: () => Promise<void>;
   sendInterest: (item: ClothingItem) => Promise<void>;
   respondToRequest: (requestId: string, response: 'accept' | 'hold' | 'decline') => Promise<void>;
   sendMessage: (chatId: string, text: string, from: 'buyer' | 'seller') => Promise<void>;
@@ -518,6 +519,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       getItemStatus,
       getLikesCount,
       refreshRequests: loadRequests,
+      refreshChats: loadChats,
       sendInterest,
       respondToRequest,
       sendMessage,

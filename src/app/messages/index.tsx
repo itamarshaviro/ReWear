@@ -1,7 +1,8 @@
+import { useCallback } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useApp } from '@/context/app-context';
 import { useAuth } from '@/context/auth-context';
 import { TabBar } from '@/components/tab-bar';
@@ -63,13 +64,19 @@ function ChatRow({ chat }: { chat: Chat }) {
 }
 
 export default function MessagesScreen() {
-  const { requests, chats, respondToRequest } = useApp();
+  const { requests, chats, respondToRequest, refreshChats, refreshRequests } = useApp();
   const { user } = useAuth();
+
+  useFocusEffect(useCallback(() => {
+    refreshChats();
+    refreshRequests();
+  }, []));
 
   const pending = requests.filter(r => r.status === 'pending');
 
-  function handleAccept(requestId: string) {
-    respondToRequest(requestId, 'accept');
+  async function handleAccept(requestId: string) {
+    await respondToRequest(requestId, 'accept');
+    router.push({ pathname: '/chat/[id]', params: { id: requestId } });
   }
   function handleDecline(requestId: string) {
     respondToRequest(requestId, 'decline');

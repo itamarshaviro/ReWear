@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import {
   Alert,
   FlatList,
@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useApp } from '@/context/app-context';
+import { ActivityIndicator } from 'react-native';
 import type { ChatMessage } from '@/data/mock';
 
 function Bubble({ msg }: { msg: ChatMessage }) {
@@ -34,20 +35,34 @@ function Bubble({ msg }: { msg: ChatMessage }) {
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { chats, sendMessage, markSold, buyerConfirmSold } = useApp();
+  const { chats, sendMessage, markSold, buyerConfirmSold, refreshChats } = useApp();
   const [text, setText] = useState('');
+  const [loadingRetry, setLoadingRetry] = useState(false);
   const listRef = useRef<FlatList>(null);
 
   const chat = chats.find(c => c.id === id);
+
+  // If chat not found on first render (race condition after navigation), retry once
+  useEffect(() => {
+    if (!chat && !loadingRetry) {
+      setLoadingRetry(true);
+      refreshChats().finally(() => setLoadingRetry(false));
+    }
+  }, [chat]);
 
   if (!chat) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.notFound}>
-          <Text style={styles.notFoundText}>הצ׳אט לא נמצא</Text>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={styles.backLink}>חזור</Text>
-          </TouchableOpacity>
+          {loadingRetry
+            ? <ActivityIndicator size="large" color="#6366F1" />
+            : <>
+                <Text style={styles.notFoundText}>הצ׳אט לא נמצא</Text>
+                <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/seller/dashboard')}>
+                  <Text style={styles.backLink}>חזור</Text>
+                </TouchableOpacity>
+              </>
+          }
         </View>
       </SafeAreaView>
     );
