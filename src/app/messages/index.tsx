@@ -8,9 +8,10 @@ import { useAuth } from '@/context/auth-context';
 import { TabBar } from '@/components/tab-bar';
 import type { InterestRequest, Chat } from '@/data/mock';
 
-function MatchCard({ req, onAccept, onDecline }: {
+function MatchCard({ req, onAccept, onHold, onDecline }: {
   req: InterestRequest;
   onAccept: () => void;
+  onHold: () => void;
   onDecline: () => void;
 }) {
   return (
@@ -34,8 +35,11 @@ function MatchCard({ req, onAccept, onDecline }: {
         <TouchableOpacity style={styles.declineBtn} onPress={onDecline} activeOpacity={0.8}>
           <Text style={styles.declineBtnText}>❌ לא, נמכר</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.holdBtn} onPress={onHold} activeOpacity={0.8}>
+          <Text style={styles.holdBtnText}>⏸ תפוס כרגע</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.acceptBtn} onPress={onAccept} activeOpacity={0.8}>
-          <Text style={styles.acceptBtnText}>✅ כן, זמין! פתח צ׳אט</Text>
+          <Text style={styles.acceptBtnText}>✅ זמין! פתח צ׳אט</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -50,14 +54,14 @@ function ChatRow({ chat }: { chat: Chat }) {
       onPress={() => router.push({ pathname: '/chat/[id]', params: { id: chat.id } })}
       activeOpacity={0.8}
     >
-      <Image source={{ uri: chat.itemImage }} style={styles.chatThumb} contentFit="cover" />
+      <View style={styles.chatRight}>
+        <Text style={styles.chatName}>{chat.otherPartyName}</Text>
+        <Image source={{ uri: chat.itemImage }} style={styles.chatThumb} contentFit="cover" />
+      </View>
       <View style={styles.chatMeta}>
-        <View style={styles.chatTop}>
-          <Text style={styles.chatTime}>{last?.timestamp ?? ''}</Text>
-          <Text style={styles.chatName}>{chat.otherPartyName}</Text>
-        </View>
         <Text style={styles.chatItem} numberOfLines={1}>{chat.itemName}</Text>
         <Text style={styles.chatLast} numberOfLines={1}>{last?.text ?? ''}</Text>
+        <Text style={styles.chatTime}>{last?.timestamp ?? ''}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -76,6 +80,10 @@ export default function MessagesScreen() {
 
   async function handleAccept(requestId: string) {
     await respondToRequest(requestId, 'accept');
+    router.push({ pathname: '/chat/[id]', params: { id: requestId } });
+  }
+  async function handleHold(requestId: string) {
+    await respondToRequest(requestId, 'hold');
     router.push({ pathname: '/chat/[id]', params: { id: requestId } });
   }
   function handleDecline(requestId: string) {
@@ -109,6 +117,7 @@ export default function MessagesScreen() {
                 key={req.id}
                 req={req}
                 onAccept={() => handleAccept(req.id)}
+                onHold={() => handleHold(req.id)}
                 onDecline={() => handleDecline(req.id)}
               />
             ))}
@@ -184,11 +193,16 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: '#FCA5A5', backgroundColor: '#FFF1F2',
   },
   declineBtnText: { fontSize: 13, fontWeight: '700', color: '#E11D48' },
+  holdBtn: {
+    flex: 1, borderRadius: 12, paddingVertical: 11, alignItems: 'center',
+    borderWidth: 1.5, borderColor: '#FCD34D', backgroundColor: '#FFFBEB',
+  },
+  holdBtnText: { fontSize: 13, fontWeight: '700', color: '#D97706' },
   acceptBtn: {
-    flex: 2, borderRadius: 12, paddingVertical: 11, alignItems: 'center',
+    flex: 1, borderRadius: 12, paddingVertical: 11, alignItems: 'center',
     backgroundColor: '#6366F1',
   },
-  acceptBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  acceptBtnText: { fontSize: 12, fontWeight: '700', color: '#fff' },
   // Chat rows (WhatsApp style)
   chatList: {
     backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden',
@@ -199,11 +213,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse', padding: 14, gap: 12, alignItems: 'center',
     borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
   },
+  chatRight: { alignItems: 'center', gap: 6 },
   chatThumb: { width: 52, height: 52, borderRadius: 10 },
   chatMeta: { flex: 1, gap: 3 },
-  chatTop: { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' },
-  chatName: { fontSize: 15, fontWeight: '700', color: '#111827' },
-  chatTime: { fontSize: 11, color: '#9CA3AF' },
+  chatName: { fontSize: 13, fontWeight: '700', color: '#111827' },
+  chatTime: { fontSize: 11, color: '#9CA3AF', textAlign: 'right' },
   chatItem: { fontSize: 12, color: '#6366F1', fontWeight: '600', textAlign: 'right' },
   chatLast: { fontSize: 13, color: '#6B7280', textAlign: 'right' },
   // Empty state
