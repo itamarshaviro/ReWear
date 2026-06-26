@@ -79,6 +79,7 @@ export type InterestRequest = {
   itemId: string;
   itemName: string;
   itemImage: string;
+  itemPrice?: number;
   buyerName: string;
   status: 'pending' | 'accepted' | 'declined' | 'on_hold';
   createdAt: string;
@@ -97,6 +98,7 @@ export type Chat = {
   itemId: string;
   itemName: string;
   itemImage: string;
+  itemPrice?: number;
   otherPartyName: string;
   messages: ChatMessage[];
   isClosed?: boolean;

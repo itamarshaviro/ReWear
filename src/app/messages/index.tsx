@@ -59,7 +59,12 @@ function ChatRow({ chat }: { chat: Chat }) {
         <Image source={{ uri: chat.itemImage }} style={styles.chatThumb} contentFit="cover" />
       </View>
       <View style={styles.chatMeta}>
-        <Text style={styles.chatItem} numberOfLines={1}>{chat.itemName}</Text>
+        <View style={styles.chatItemRow}>
+          <Text style={styles.chatItem} numberOfLines={1}>{chat.itemName}</Text>
+          {chat.itemPrice != null && (
+            <Text style={styles.chatPrice}>₪{chat.itemPrice}</Text>
+          )}
+        </View>
         <Text style={styles.chatLast} numberOfLines={1}>{last?.text ?? ''}</Text>
         <Text style={styles.chatTime}>{last?.timestamp ?? ''}</Text>
       </View>
@@ -218,7 +223,9 @@ const styles = StyleSheet.create({
   chatMeta: { flex: 1, gap: 3 },
   chatName: { fontSize: 13, fontWeight: '700', color: '#111827' },
   chatTime: { fontSize: 11, color: '#9CA3AF', textAlign: 'right' },
-  chatItem: { fontSize: 12, color: '#6366F1', fontWeight: '600', textAlign: 'right' },
+  chatItemRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 6 },
+  chatItem: { fontSize: 12, color: '#6366F1', fontWeight: '600', textAlign: 'right', flex: 1 },
+  chatPrice: { fontSize: 12, fontWeight: '800', color: '#16A34A' },
   chatLast: { fontSize: 13, color: '#6B7280', textAlign: 'right' },
   // Empty state
   empty: { alignItems: 'center', gap: 14, paddingVertical: 48 },

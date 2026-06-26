@@ -201,11 +201,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     type MatchRow = {
       id: string; item_id: string; buyer_id: string; seller_id: string;
       buyer_name: string; status: 'pending' | 'accepted' | 'declined'; created_at: string;
-      items: { name: string; image_url: string | null } | null;
+      items: { name: string; image_url: string | null; price: number | null } | null;
     };
     const { data } = await supabase
       .from('matches')
-      .select('*, items(name, image_url)')
+      .select('*, items(name, image_url, price)')
       .eq('seller_id', dbId)
       .order('created_at', { ascending: false });
 
@@ -218,6 +218,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           itemId: row.item_id,
           itemName: item?.name ?? '',
           itemImage: item?.image_url ?? '',
+          itemPrice: item?.price ?? undefined,
           buyerName: row.buyer_name,
           status: row.status,
           createdAt: new Date(row.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
@@ -232,11 +233,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       id: string; item_id: string; buyer_id: string; seller_id: string;
       buyer_name: string; status: string; created_at: string;
       seller_marked_sold: boolean;
-      items: { name: string; image_url: string | null; seller_name: string } | null;
+      items: { name: string; image_url: string | null; seller_name: string; price: number | null } | null;
     };
     const { data: matchesRaw } = await supabase
       .from('matches')
-      .select('*, items(name, image_url, seller_name)')
+      .select('*, items(name, image_url, seller_name, price)')
       .in('status', ['accepted', 'on_hold'] as ('accepted' | 'pending' | 'declined')[])
       .or(`seller_id.eq.${dbId},buyer_id.eq.${dbId}`)
       .order('created_at', { ascending: false });
@@ -273,6 +274,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         itemId: m.item_id,
         itemName: item?.name ?? '',
         itemImage: item?.image_url ?? '',
+        itemPrice: item?.price ?? undefined,
         otherPartyName,
         messages: msgsByMatch[m.id] ?? [],
         isClosed: false,
