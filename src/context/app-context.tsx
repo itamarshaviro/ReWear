@@ -59,6 +59,10 @@ const configured = isSupabaseConfigured();
 function ts() {
   return new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
 }
+function dateStr(d?: Date) {
+  const date = d ?? new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -120,11 +124,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload) => {
           const row = payload.new as { id: string; match_id: string; sender_id: string; text: string; created_at: string };
+          const msgDate = new Date(row.created_at);
           const newMsg: ChatMessage = {
             id: row.id,
             text: row.text,
             from: row.sender_id === dbId ? 'seller' : 'buyer',
-            timestamp: new Date(row.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
+            timestamp: msgDate.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
+            date: dateStr(msgDate),
           };
           setChats(prev => prev.map(c => {
             if (c.id !== row.match_id) return c;
@@ -248,11 +254,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const msgsByMatch: Record<string, ChatMessage[]> = {};
     for (const msg of (msgs ?? [])) {
       if (!msgsByMatch[msg.match_id]) msgsByMatch[msg.match_id] = [];
+      const md = new Date(msg.created_at);
       msgsByMatch[msg.match_id].push({
         id: msg.id,
         text: msg.text,
         from: msg.sender_id === dbId ? 'seller' : 'buyer',
-        timestamp: new Date(msg.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: md.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
+        date: dateStr(md),
       });
     }
 
@@ -401,7 +409,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               otherPartyName: req.buyerName,
               isSeller: true,
               sellerMarkedSold: false,
-              messages: [{ id: `msg-${Date.now()}`, text: msgText, from: 'seller', timestamp: ts() }],
+              messages: [{ id: `msg-${Date.now()}`, text: msgText, from: 'seller', timestamp: ts(), date: dateStr() }],
               isClosed: false,
             };
             setChats(prev => [...prev.filter(c => c.id !== requestId), newChat]);
@@ -424,7 +432,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         id: `chat-${Date.now()}`,
         itemId: req.itemId, itemName: req.itemName, itemImage: req.itemImage,
         otherPartyName: req.buyerName, isSeller: true, sellerMarkedSold: false,
-        messages: [{ id: 'msg-init', text: msgText, from: 'seller', timestamp: ts() }],
+        messages: [{ id: 'msg-init', text: msgText, from: 'seller', timestamp: ts(), date: dateStr() }],
         isClosed: false,
       }]);
     }
@@ -442,7 +450,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const msg: ChatMessage = { id: `msg-${Date.now()}`, text, from, timestamp: ts() };
+    const msg: ChatMessage = { id: `msg-${Date.now()}`, text, from, timestamp: ts(), date: dateStr() };
     setChats(prev => prev.map(c => c.id === chatId ? { ...c, messages: [...c.messages, msg] } : c));
   }
 

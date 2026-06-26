@@ -89,6 +89,7 @@ export type ChatMessage = {
   text: string;
   from: 'buyer' | 'seller';
   timestamp: string;
+  date?: string; // 'YYYY-MM-DD'
 };
 
 export type Chat = {

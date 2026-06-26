@@ -17,6 +17,53 @@ import { useApp } from '@/context/app-context';
 import { ActivityIndicator } from 'react-native';
 import type { ChatMessage } from '@/data/mock';
 
+type ListItem =
+  | { type: 'message'; msg: ChatMessage }
+  | { type: 'date'; label: string; key: string };
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function formatDateLabel(d: string): string {
+  const today = todayStr();
+  const yesterday = (() => {
+    const yd = new Date(); yd.setDate(yd.getDate() - 1);
+    return `${yd.getFullYear()}-${String(yd.getMonth() + 1).padStart(2, '0')}-${String(yd.getDate()).padStart(2, '0')}`;
+  })();
+  if (d === today) return 'היום';
+  if (d === yesterday) return 'אתמול';
+  const dt = new Date(d);
+  const days = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+  const months = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+  return `יום ${days[dt.getDay()]}, ${dt.getDate()} ב${months[dt.getMonth()]}`;
+}
+
+function buildListItems(messages: ChatMessage[]): ListItem[] {
+  const items: ListItem[] = [];
+  let lastDate = '';
+  for (const msg of messages) {
+    const d = msg.date ?? todayStr();
+    if (d !== lastDate) {
+      items.push({ type: 'date', label: formatDateLabel(d), key: `date-${d}` });
+      lastDate = d;
+    }
+    items.push({ type: 'message', msg });
+  }
+  return items;
+}
+
+function DateSeparator({ label }: { label: string }) {
+  return (
+    <View style={styles.dateSepRow}>
+      <View style={styles.dateSepLine} />
+      <Text style={styles.dateSepText}>{label}</Text>
+      <View style={styles.dateSepLine} />
+    </View>
+  );
+}
+
 function Bubble({ msg }: { msg: ChatMessage }) {
   const isSeller = msg.from === 'seller';
   return (
@@ -38,7 +85,7 @@ export default function ChatScreen() {
   const { chats, sendMessage, markSold, buyerConfirmSold, refreshChats } = useApp();
   const [text, setText] = useState('');
   const [loadingRetry, setLoadingRetry] = useState(false);
-  const listRef = useRef<FlatList>(null);
+  const listRef = useRef<FlatList<ListItem>>(null);
 
   const chat = chats.find(c => c.id === id);
 
@@ -149,10 +196,14 @@ export default function ChatScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
         <FlatList
           ref={listRef}
-          data={chat.messages}
-          keyExtractor={m => m.id}
+          data={buildListItems(chat.messages)}
+          keyExtractor={item => item.type === 'date' ? item.key : item.msg.id}
           contentContainerStyle={styles.messages}
-          renderItem={({ item }) => <Bubble msg={item} />}
+          renderItem={({ item }) =>
+            item.type === 'date'
+              ? <DateSeparator label={item.label} />
+              : <Bubble msg={item.msg} />
+          }
           onLayout={() => listRef.current?.scrollToEnd({ animated: false })}
         />
 
@@ -218,6 +269,9 @@ const styles = StyleSheet.create({
   closedBannerText: { fontSize: 14, fontWeight: '700', color: '#065F46' },
   rateLink: { fontSize: 14, fontWeight: '700', color: '#059669' },
   messages: { padding: 16, gap: 10 },
+  dateSepRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 6 },
+  dateSepLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
+  dateSepText: { fontSize: 12, fontWeight: '600', color: '#9CA3AF', paddingHorizontal: 4 },
   bubbleRow: { flexDirection: 'row' },
   bubbleRowRight: { justifyContent: 'flex-end' },
   bubbleRowLeft: { justifyContent: 'flex-start' },
