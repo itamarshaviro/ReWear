@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 
@@ -40,8 +40,11 @@ export type SignUpPayload = {
 type AuthContextType = {
   user: AuthUser | null;
   isLoading: boolean;
+  pendingEmail: string | null;
   signIn: (email: string, password: string) => Promise<string | null>;
   signUp: (payload: SignUpPayload) => Promise<'ok' | 'needs-verify' | string>;
+  verifyOtp: (code: string) => Promise<string | null>;
+  resendOtp: () => Promise<string | null>;
   logout: () => void;
   updatePreferences: (prefs: BuyerPreferences) => void;
 };
@@ -51,6 +54,8 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(isSupabaseConfigured());
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const suppressAuth = useRef(false);
 
   // ── Session detection ────────────────────────────────────────────────────
   useEffect(() => {
@@ -78,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function handleAuthUser(authUser: User) {
+    if (suppressAuth.current) return;
     setIsLoading(true);
     try {
       const { data } = await supabase
@@ -150,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const address = [payload.street, payload.city, payload.zip].filter(Boolean).join(', ');
 
     if (!isSupabaseConfigured()) {
+
       setUser({
         id: `demo-${Date.now()}`, dbId: `demo-${Date.now()}`,
         firstName: payload.firstName, lastName: payload.lastName,
@@ -160,54 +167,93 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return 'ok';
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email: payload.email,
-      password: payload.password,
-      options: {
-        data: {
-          first_name: payload.firstName,
-          last_name: payload.lastName,
-          phone: payload.phone,
-        },
-      },
-    });
-
-    if (error) {
-      if (error.message.includes('already registered') || error.message.includes('already exists'))
-        return 'כתובת המייל כבר רשומה. נסה להתחבר במקום זאת.';
-      return error.message;
-    }
-
-    const authUser = data.user;
-    if (!authUser) return 'שגיאה ביצירת חשבון';
-
-    // Save profile — age column omitted until the ALTER TABLE migration runs
-    const { error: upsertError } = await supabase
-      .from('users')
-      .upsert({
-        auth_id: authUser.id,
-        first_name: payload.firstName,
-        last_name: payload.lastName,
+    // Block onAuthStateChange from navigating during signup
+    suppressAuth.current = true;
+    try {
+      const { data, error } = await supabase.auth.signUp({
         email: payload.email,
-        phone: payload.phone,
-        address: address || null,
-        is_verified: true,
-        is_premium: false,
+        password: payload.password,
+        options: {
+          data: {
+            first_name: payload.firstName,
+            last_name: payload.lastName,
+            phone: payload.phone,
+          },
+        },
       });
 
-    if (upsertError) {
-      await supabase.auth.signOut();
-      return 'שגיאה בשמירת הפרטים: ' + upsertError.message;
+      if (error) {
+        if (error.message.includes('already registered') || error.message.includes('already exists'))
+          return 'כתובת המייל כבר רשומה. נסה להתחבר במקום זאת.';
+        return error.message;
+      }
+
+      const authUser = data.user;
+      if (!authUser) return 'שגיאה ביצירת חשבון';
+
+      const { error: upsertError } = await supabase
+        .from('users')
+        .upsert({
+          auth_id: authUser.id,
+          first_name: payload.firstName,
+          last_name: payload.lastName,
+          email: payload.email,
+          phone: payload.phone,
+          address: address || null,
+          is_verified: true,
+          is_premium: false,
+        });
+
+      if (upsertError) {
+        await supabase.auth.signOut();
+        return 'שגיאה בשמירת הפרטים: ' + upsertError.message;
+      }
+
+      if (data.session) {
+        await supabase.auth.signOut();
+      }
+
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: payload.email.trim().toLowerCase(),
+        options: { shouldCreateUser: false },
+      });
+      if (otpError) return 'ok';
+
+      setPendingEmail(payload.email.trim().toLowerCase());
+      return 'needs-verify';
+    } finally {
+      suppressAuth.current = false;
     }
+  }
 
-    // If no session → email confirmation required (happens when "Confirm email" is ON)
-    if (!data.session) return 'needs-verify';
+  // ── OTP verification ─────────────────────────────────────────────────────
+  async function verifyOtp(code: string): Promise<string | null> {
+    if (!pendingEmail) return 'שגיאה: לא נמצא מייל ממתין';
+    suppressAuth.current = true;
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: pendingEmail,
+        token: code,
+        type: 'email',
+      });
+      if (error) return 'קוד שגוי או פג תוקף';
+      // Sign out immediately — user must log in manually after verification
+      await supabase.auth.signOut();
+      setPendingEmail(null);
+      return null;
+    } finally {
+      suppressAuth.current = false;
+    }
+  }
 
-    // Sign out immediately so the user must log in manually.
-    // This also avoids a race condition where onAuthStateChange fires before
-    // the upsert above completes and handleAuthUser finds no profile.
-    await supabase.auth.signOut();
-    return 'ok';
+  async function resendOtp(): Promise<string | null> {
+    if (!pendingEmail) return 'שגיאה: לא נמצא מייל ממתין';
+    const { error } = await supabase.auth.signInWithOtp({
+      email: pendingEmail,
+      options: { shouldCreateUser: false },
+    });
+    if (error) return error.message;
+    return null;
   }
 
   // ── Other ────────────────────────────────────────────────────────────────
@@ -221,7 +267,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, logout, updatePreferences }}>
+    <AuthContext.Provider value={{ user, isLoading, pendingEmail, signIn, signUp, verifyOtp, resendOtp, logout, updatePreferences }}>
       {children}
     </AuthContext.Provider>
   );

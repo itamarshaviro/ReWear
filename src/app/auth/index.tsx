@@ -14,8 +14,9 @@ import { useAuth } from '@/context/auth-context';
 
 export default function LoginScreen() {
   const { signIn, user } = useAuth();
-  const params = useLocalSearchParams<{ registered?: string }>();
+  const params = useLocalSearchParams<{ registered?: string; verified?: string }>();
   const justRegistered = params.registered === '1';
+  const justVerified = params.verified === '1';
 
   // Navigate to home once the user is set after successful sign-in
   useEffect(() => {
@@ -58,7 +59,12 @@ export default function LoginScreen() {
             <Text style={styles.tagline}>קנה ומכור בגדים יד שנייה 👗</Text>
           </View>
 
-          {justRegistered && (
+          {justVerified && (
+            <View style={styles.successBox}>
+              <Text style={styles.successText}>✅ האימייל אומת בהצלחה! התחבר עם המייל והסיסמא שלך.</Text>
+            </View>
+          )}
+          {justRegistered && !justVerified && (
             <View style={styles.successBox}>
               <Text style={styles.successText}>✅ החשבון נוצר בהצלחה! התחבר עם המייל והסיסמא שלך.</Text>
             </View>
