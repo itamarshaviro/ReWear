@@ -168,10 +168,12 @@ function WebMapView({ items, center }: { items: ClothingItem[]; center: UserLoca
         {isLoaded ? (
           <GM
             mapContainerStyle={{ width: '100%', height: '100%' }}
-            center={{ lat: center.latitude, lng: center.longitude }}
-            zoom={13}
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            onLoad={(map: any) => { mapRef.current = map; }}
+            onLoad={(map: any) => {
+              map.setCenter({ lat: center.latitude, lng: center.longitude });
+              map.setZoom(13);
+              mapRef.current = map;
+            }}
             options={{
               fullscreenControl: false,
               streetViewControl: false,
