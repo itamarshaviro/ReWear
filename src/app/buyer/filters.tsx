@@ -5,7 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { CATEGORY_INFO, ALL_SIZES } from '@/data/mock';
 import type { Category } from '@/data/mock';
 
-const DISTANCES = [0.5, 1, 2, 5, 10, 20];
+const DISTANCES = [0.5, 1, 2, 5, 10, 20, 50, 9999];
 const MAX_PRICES = [50, 100, 200, 300, 500];
 
 function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
@@ -71,7 +71,7 @@ export default function FiltersScreen() {
             {DISTANCES.map(d => (
               <Chip
                 key={d}
-                label={d < 1 ? `${d * 1000 | 0} מ'` : `${d} ק"מ`}
+                label={d < 1 ? `${d * 1000 | 0} מ'` : d === 9999 ? '50+ ק"מ' : `${d} ק"מ`}
                 selected={distance === d}
                 onPress={() => setDistance(d)}
               />

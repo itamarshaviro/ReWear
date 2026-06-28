@@ -294,7 +294,7 @@ function NativeMapView({ items, center }: { items: ClothingItem[]; center: UserL
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function MapScreen() {
   const { allListings, setUserLocation } = useApp();
-  const [filterCat, setFilterCat] = useState<Category | 'all'>('all');
+  const [filterCats, setFilterCats] = useState<Set<Category>>(new Set());
   const { location, loading, denied } = useUserLocation();
 
   useEffect(() => {
@@ -303,9 +303,17 @@ export default function MapScreen() {
 
   const center = location ?? TEL_AVIV;
 
-  const filtered = filterCat === 'all'
+  const filtered = filterCats.size === 0
     ? allListings
-    : allListings.filter(i => i.category === filterCat);
+    : allListings.filter(i => filterCats.has(i.category));
+
+  function toggleCat(cat: Category) {
+    setFilterCats(prev => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat); else next.add(cat);
+      return next;
+    });
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -328,16 +336,16 @@ export default function MapScreen() {
         <Text style={styles.subtitle}>{filtered.length} פריטים</Text>
       </View>
 
-      {/* Compact category strip */}
+      {/* Compact category strip — multi-select */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filterBar}
         style={styles.filterScroll}
       >
-        <CategoryChip cat="all" active={filterCat === 'all'} onPress={() => setFilterCat('all')} />
+        <CategoryChip cat="all" active={filterCats.size === 0} onPress={() => setFilterCats(new Set())} />
         {CATEGORIES.map(c => (
-          <CategoryChip key={c.id} cat={c.id} active={filterCat === c.id} onPress={() => setFilterCat(c.id)} />
+          <CategoryChip key={c.id} cat={c.id} active={filterCats.has(c.id)} onPress={() => toggleCat(c.id)} />
         ))}
       </ScrollView>
 
