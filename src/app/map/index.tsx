@@ -147,9 +147,15 @@ function WebMapView({ items, center }: { items: ClothingItem[]; center: UserLoca
   const GM = GoogleMap!;
   const Mk = GMarker!;
 
+  // Items sorted: selected first
+  const sortedItems = selectedItem
+    ? [selectedItem, ...items.filter(i => i.id !== selectedItem.id)]
+    : items;
+
   return (
     <View style={styles.webContainer}>
-      <View style={styles.mapWrapper}>
+      {/* Left pane — map (50%) */}
+      <View style={styles.mapPane}>
         {isLoaded ? (
           <GM
             mapContainerStyle={{ width: '100%', height: '100%' }}
@@ -162,23 +168,23 @@ function WebMapView({ items, center }: { items: ClothingItem[]; center: UserLoca
               zoomControlOptions: { position: 7 },
             }}
           >
-            {/* User location */}
             <Mk
               position={{ lat: center.latitude, lng: center.longitude }}
               icon={{ url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png' }}
               title="המיקום שלך"
             />
-            {/* Item pins */}
             {items.map((item, idx) => {
               const c = (typeof item.lat === 'number' && typeof item.lng === 'number')
                 ? { latitude: item.lat, longitude: item.lng }
                 : itemCoordinates(item.distance, idx);
+              const isSelected = selectedItem?.id === item.id;
               return (
                 <Mk
                   key={item.id}
                   position={{ lat: c.latitude, lng: c.longitude }}
                   title={`${item.name} — ₪${item.price}`}
-                  onClick={() => setSelectedItem(item)}
+                  onClick={() => setSelectedItem(isSelected ? null : item)}
+                  icon={isSelected ? { url: 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png' } : undefined}
                 />
               );
             })}
@@ -188,38 +194,42 @@ function WebMapView({ items, center }: { items: ClothingItem[]; center: UserLoca
             <ActivityIndicator size="large" color="#6366F1" />
           </View>
         )}
-
-        {selectedItem && (
-          <View style={styles.selectedCard}>
-            <TouchableOpacity onPress={() => setSelectedItem(null)} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>✕</Text>
-            </TouchableOpacity>
-            <ItemCard item={selectedItem} onPress={() => router.push('/buyer/feed')} />
-          </View>
-        )}
       </View>
 
-      <ScrollView
-        style={styles.itemsList}
-        contentContainerStyle={styles.itemsListContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.listSectionTitle}>פריטים באזורך</Text>
-        {items.map(item => (
-          <ItemCard
-            key={item.id}
-            item={item}
-            onPress={() => setSelectedItem(item === selectedItem ? null : item)}
-          />
-        ))}
-        {items.length === 0 && (
-          <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>🔍</Text>
-            <Text style={styles.emptyText}>לא נמצאו פריטים בקטגוריה זו</Text>
-          </View>
-        )}
-        <View style={{ height: 100 }} />
-      </ScrollView>
+      {/* Right pane — items list (50%) */}
+      <View style={styles.listPane}>
+        <View style={styles.listHeader}>
+          <Text style={styles.listSectionTitle}>
+            {items.length} פריטים באזורך
+          </Text>
+        </View>
+        <ScrollView
+          style={styles.itemsList}
+          contentContainerStyle={styles.itemsListContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {sortedItems.map(item => {
+            const isSelected = selectedItem?.id === item.id;
+            return (
+              <TouchableOpacity
+                key={item.id}
+                onPress={() => setSelectedItem(isSelected ? null : item)}
+                activeOpacity={0.85}
+                style={[styles.itemCardWrap, isSelected && styles.itemCardWrapSelected]}
+              >
+                <ItemCard item={item} onPress={() => router.push('/buyer/feed')} />
+              </TouchableOpacity>
+            );
+          })}
+          {items.length === 0 && (
+            <View style={styles.empty}>
+              <Text style={styles.emptyEmoji}>🔍</Text>
+              <Text style={styles.emptyText}>לא נמצאו פריטים בקטגוריה זו</Text>
+            </View>
+          )}
+          <View style={{ height: 80 }} />
+        </ScrollView>
+      </View>
     </View>
   );
 }
@@ -397,28 +407,39 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 12, fontWeight: '600', color: '#374151' },
   chipTextActive: { color: '#fff' },
 
-  // Web layout
-  webContainer: { flex: 1 },
-  mapWrapper: {
-    height: '52%',
-    position: 'relative',
+  // Web layout — side by side
+  webContainer: { flex: 1, flexDirection: 'row' },
+  mapPane: { flex: 1 },
+  listPane: {
+    width: '42%',
+    borderLeftWidth: 1, borderLeftColor: '#E5E7EB',
+    backgroundColor: '#F8F7FF',
+  },
+  listHeader: {
+    paddingHorizontal: 14, paddingTop: 12, paddingBottom: 6,
+    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+  },
+  listSectionTitle: {
+    fontSize: 13, fontWeight: '700', color: '#6366F1', textAlign: 'right',
+  },
+  itemCardWrap: { borderRadius: 16, overflow: 'hidden' },
+  itemCardWrapSelected: {
+    borderWidth: 2, borderColor: '#6366F1',
+    shadowColor: '#6366F1', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2, shadowRadius: 8, elevation: 6,
   },
 
   noKeyBox: {
-    height: 200, backgroundColor: '#EEF2FF',
+    flex: 1, backgroundColor: '#EEF2FF',
     alignItems: 'center', justifyContent: 'center', gap: 8,
   },
   noKeyEmoji: { fontSize: 48 },
   noKeyTitle: { fontSize: 16, fontWeight: '800', color: '#3730A3' },
   noKeyText: { fontSize: 13, color: '#6B7280', textAlign: 'center' },
 
-  // Items list (below map on web)
+  // Items list
   itemsList: { flex: 1 },
-  itemsListContent: { padding: 14, gap: 10 },
-  listSectionTitle: {
-    fontSize: 13, fontWeight: '700', color: '#6366F1',
-    textAlign: 'right', marginBottom: 2,
-  },
+  itemsListContent: { padding: 10, gap: 8 },
 
   // Item card
   itemCard: {
@@ -457,6 +478,7 @@ const styles = StyleSheet.create({
   calloutImg: { width: 130, height: 90, borderRadius: 8 },
   calloutName: { fontSize: 12, fontWeight: '700', color: '#111827', textAlign: 'center' },
   calloutPrice: { fontSize: 14, fontWeight: '900', color: '#6366F1' },
+  // Native map selected card overlay
   selectedCard: {
     position: 'absolute', bottom: 80, left: 16, right: 16,
     backgroundColor: '#fff', borderRadius: 20, overflow: 'hidden',
