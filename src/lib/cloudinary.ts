@@ -3,8 +3,8 @@ import { Platform } from 'react-native';
 const CLOUD_NAME    = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME    ?? '';
 const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? '';
 
-// Transforms disabled — upload only, no visual changes applied
-const TRANSFORMS = 'a_exif/q_auto:best,f_auto';
+// Light sharpen only — makes fabric edges crisper without altering colors or shape
+const TRANSFORMS = 'a_exif/e_sharpen:60,q_auto:best,f_auto';
 
 export function isCloudinaryConfigured(): boolean {
   const name   = (process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME    ?? '').trim();
