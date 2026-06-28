@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -128,6 +128,8 @@ function ItemCard({ item, onPress }: { item: ClothingItem; onPress: () => void }
 // ── Web map — Interactive Google Maps ────────────────────────────────────────
 function WebMapView({ items, center }: { items: ClothingItem[]; center: UserLocation }) {
   const [selectedItem, setSelectedItem] = useState<ClothingItem | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mapRef = useRef<any>(null);
 
   const loaderResult = useJsApiLoader
     ? useJsApiLoader({ googleMapsApiKey: GOOGLE_MAPS_KEY, id: 'rewear-map' })
@@ -147,6 +149,13 @@ function WebMapView({ items, center }: { items: ClothingItem[]; center: UserLoca
   const GM = GoogleMap!;
   const Mk = GMarker!;
 
+  function zoomIn() {
+    if (mapRef.current) mapRef.current.setZoom(mapRef.current.getZoom() + 1);
+  }
+  function zoomOut() {
+    if (mapRef.current) mapRef.current.setZoom(mapRef.current.getZoom() - 1);
+  }
+
   // Items sorted: selected first
   const sortedItems = selectedItem
     ? [selectedItem, ...items.filter(i => i.id !== selectedItem.id)]
@@ -161,11 +170,13 @@ function WebMapView({ items, center }: { items: ClothingItem[]; center: UserLoca
             mapContainerStyle={{ width: '100%', height: '100%' }}
             center={{ lat: center.latitude, lng: center.longitude }}
             zoom={13}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onLoad={(map: any) => { mapRef.current = map; }}
             options={{
               fullscreenControl: false,
               streetViewControl: false,
               mapTypeControl: false,
-              zoomControlOptions: { position: 7 },
+              zoomControl: false,
             }}
           >
             <Mk
@@ -192,6 +203,19 @@ function WebMapView({ items, center }: { items: ClothingItem[]; center: UserLoca
         ) : (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
             <ActivityIndicator size="large" color="#6366F1" />
+          </View>
+        )}
+
+        {/* Zoom buttons */}
+        {isLoaded && (
+          <View style={styles.zoomBtns}>
+            <TouchableOpacity style={styles.zoomBtn} onPress={zoomIn} activeOpacity={0.75}>
+              <Text style={styles.zoomBtnText}>+</Text>
+            </TouchableOpacity>
+            <View style={styles.zoomDivider} />
+            <TouchableOpacity style={styles.zoomBtn} onPress={zoomOut} activeOpacity={0.75}>
+              <Text style={styles.zoomBtnText}>−</Text>
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -478,6 +502,21 @@ const styles = StyleSheet.create({
   calloutImg: { width: 130, height: 90, borderRadius: 8 },
   calloutName: { fontSize: 12, fontWeight: '700', color: '#111827', textAlign: 'center' },
   calloutPrice: { fontSize: 14, fontWeight: '900', color: '#6366F1' },
+  // Zoom buttons (web)
+  zoomBtns: {
+    position: 'absolute', right: 12, top: '50%',
+    backgroundColor: '#fff', borderRadius: 10,
+    overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15, shadowRadius: 6, elevation: 6,
+    borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  zoomBtn: {
+    width: 36, height: 36, alignItems: 'center', justifyContent: 'center',
+  },
+  zoomBtnText: { fontSize: 20, fontWeight: '300', color: '#374151', lineHeight: 24 },
+  zoomDivider: { height: 1, backgroundColor: '#E5E7EB' },
+
   // Native map selected card overlay
   selectedCard: {
     position: 'absolute', bottom: 80, left: 16, right: 16,
