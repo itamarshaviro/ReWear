@@ -139,7 +139,7 @@ export default function FeedScreen() {
     sizes: string;
     maxPrice: string;
   }>();
-  const { allListings, sendInterest } = useApp();
+  const { otherListings: allListings, sendInterest } = useApp();
 
   const maxDist = parseFloat(distance ?? '50');
   const sizeList = sizes ? sizes.split(',').filter(Boolean) : [];

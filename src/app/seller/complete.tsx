@@ -19,6 +19,62 @@ import { useAuth } from '@/context/auth-context';
 import type { Condition } from '@/data/mock';
 import { CATEGORY_INFO, CONDITIONS, ALL_SIZES } from '@/data/mock';
 
+const GOOGLE_MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
+const TEL_AVIV = { lat: 32.0853, lng: 34.7818 };
+
+// Web-only Google Maps for manual pin
+let GoogleMap: React.ComponentType<any> | null = null;
+let GMarker: React.ComponentType<any> | null = null;
+let useJsApiLoader: ((...args: any[]) => any) | null = null;
+if (Platform.OS === 'web') {
+  try {
+    const gmaps = require('@react-google-maps/api');
+    GoogleMap = gmaps.GoogleMap;
+    GMarker = gmaps.Marker;
+    useJsApiLoader = gmaps.useJsApiLoader;
+  } catch { /* not available */ }
+}
+
+async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+  if (!GOOGLE_MAPS_KEY || !address.trim()) return null;
+  try {
+    const res = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&region=il&key=${GOOGLE_MAPS_KEY}`
+    );
+    const data = await res.json();
+    if (data.status === 'OK' && data.results?.[0]) {
+      const loc = data.results[0].geometry.location;
+      return { lat: loc.lat, lng: loc.lng };
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+type LatLng = { lat: number; lng: number };
+
+function PinPicker({ value, onChange }: { value: LatLng | null; onChange: (p: LatLng) => void }) {
+  const loaderResult = useJsApiLoader
+    ? useJsApiLoader({ googleMapsApiKey: GOOGLE_MAPS_KEY, id: 'rewear-pin' })
+    : { isLoaded: false };
+  if (!GoogleMap || !GMarker || !GOOGLE_MAPS_KEY || !loaderResult.isLoaded) {
+    return <Text style={{ color: '#9CA3AF', fontSize: 13, textAlign: 'right' }}>טוען מפה...</Text>;
+  }
+  const GM = GoogleMap!;
+  const Mk = GMarker!;
+  const center = value ?? TEL_AVIV;
+  return (
+    <GM
+      mapContainerStyle={{ width: '100%', height: 200, borderRadius: 14, overflow: 'hidden' }}
+      center={center}
+      zoom={14}
+      onClick={(e: any) => onChange({ lat: e.latLng.lat(), lng: e.latLng.lng() })}
+      options={{ fullscreenControl: false, streetViewControl: false, mapTypeControl: false }}
+    >
+      {value && <Mk position={value} />}
+    </GM>
+  );
+}
+
 function SizeDropdown({ value, onChange }: { value: string; onChange: (s: string) => void }) {
   const [open, setOpen] = useState(false);
   return (
@@ -75,7 +131,10 @@ export default function CompleteScreen() {
   const userCity = user?.address ? user.address.split(',')[1]?.trim() ?? '' : '';
   const [location, setLocation] = useState(userCity);
   const [priceMode, setPriceMode] = useState<'suggest' | 'custom'>(draft?.price ? 'suggest' : 'custom');
-  const gpsRef = useRef<{ lat: number; lng: number } | null>(null);
+  const [manualPin, setManualPin] = useState<LatLng | null>(null);
+  const [showPinPicker, setShowPinPicker] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const gpsRef = useRef<LatLng | null>(null);
 
   const suggestedPrice = draft?.price;
 
@@ -88,11 +147,13 @@ export default function CompleteScreen() {
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-      // Use cached position immediately so it's ready before user taps Preview
+      if (status !== 'granted') {
+        // GPS denied — suggest manual pin
+        setShowPinPicker(true);
+        return;
+      }
       const last = await Location.getLastKnownPositionAsync();
       if (last) gpsRef.current = { lat: last.coords.latitude, lng: last.coords.longitude };
-      // Then overwrite with fresh accurate position
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       gpsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
     })();
@@ -102,34 +163,35 @@ export default function CompleteScreen() {
 
   const catInfo = draft.category ? CATEGORY_INFO[draft.category] : null;
 
-  function goToPreview() {
+  async function goToPreview() {
     if (!draft) return;
-    if (!name.trim()) {
-      Alert.alert('שדה חסר', 'אנא הזן שם לפריט.');
-      return;
-    }
-    if (!selectedCondition) {
-      Alert.alert('שדה חסר', 'אנא בחר מצב פריט.');
-      return;
-    }
-    if (!price || !size || !location) {
-      Alert.alert('שדות חסרים', 'אנא מלא מחיר, מידה ומיקום.');
-      return;
-    }
+    if (!name.trim()) { Alert.alert('שדה חסר', 'אנא הזן שם לפריט.'); return; }
+    if (!selectedCondition) { Alert.alert('שדה חסר', 'אנא בחר מצב פריט.'); return; }
+    if (!price || !size || !location) { Alert.alert('שדות חסרים', 'אנא מלא מחיר, מידה ומיקום.'); return; }
     if (!canAddMore) {
       Alert.alert(
         'הגעת למגבלה',
         isPremium ? `פרסמת ${limit} פריטים (מגבלה פרמיום)` : 'מגבלת חינם: 5 פריטים. שדרג לפרמיום.',
         isPremium
           ? [{ text: 'אישור' }]
-          : [
-              { text: 'ביטול', style: 'cancel' },
-              { text: 'שדרג לפרמיום 🚀', onPress: upgradePremium },
-            ]
+          : [{ text: 'ביטול', style: 'cancel' }, { text: 'שדרג לפרמיום 🚀', onPress: upgradePremium }]
       );
       return;
     }
 
+    setSaving(true);
+
+    // Priority: manual pin → GPS → geocode location text → geocode profile city
+    let finalLat: number | undefined = manualPin?.lat ?? gpsRef.current?.lat;
+    let finalLng: number | undefined = manualPin?.lng ?? gpsRef.current?.lng;
+
+    if (!finalLat) {
+      const geo = await geocodeAddress(location.trim())
+        ?? (userCity ? await geocodeAddress(userCity) : null);
+      if (geo) { finalLat = geo.lat; finalLng = geo.lng; }
+    }
+
+    setSaving(false);
     setDraft({
       ...draft,
       name: name.trim(),
@@ -138,8 +200,8 @@ export default function CompleteScreen() {
       price: parseInt(price),
       size: size.trim(),
       location: location.trim(),
-      lat: gpsRef.current?.lat,
-      lng: gpsRef.current?.lng,
+      lat: finalLat,
+      lng: finalLng,
     });
     router.push('/seller/preview');
   }
@@ -292,6 +354,26 @@ export default function CompleteScreen() {
               onChangeText={setLocation}
               textAlign="right"
             />
+            <TouchableOpacity
+              style={styles.pinToggle}
+              onPress={() => setShowPinPicker(p => !p)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.pinToggleText}>
+                {manualPin ? '📍 מיקום מדויק נקבע ✓' : showPinPicker ? '▲ סגור מפה' : '📍 דייק מיקום על המפה'}
+              </Text>
+            </TouchableOpacity>
+            {showPinPicker && Platform.OS === 'web' && (
+              <View style={styles.pinPickerWrap}>
+                <Text style={styles.pinPickerHint}>לחץ על המפה כדי לקבוע את מיקום המכירה המדויק</Text>
+                <PinPicker value={manualPin} onChange={setManualPin} />
+                {manualPin && (
+                  <TouchableOpacity onPress={() => setManualPin(null)} style={styles.pinClear}>
+                    <Text style={styles.pinClearText}>✕ נקה סיכה</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </Field>
 
           <View style={styles.limitRow}>
@@ -302,11 +384,12 @@ export default function CompleteScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.previewBtn, !canAddMore && styles.previewBtnDisabled]}
+            style={[styles.previewBtn, (!canAddMore || saving) && styles.previewBtnDisabled]}
             onPress={goToPreview}
             activeOpacity={0.85}
+            disabled={saving}
           >
-            <Text style={styles.previewBtnText}>תצוגה מקדימה →</Text>
+            <Text style={styles.previewBtnText}>{saving ? 'מאתר מיקום...' : 'תצוגה מקדימה →'}</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -420,4 +503,11 @@ const styles = StyleSheet.create({
   },
   priceSuggestOverrideText: { fontSize: 15, fontWeight: '600', color: '#374151' },
   backToSuggest: { fontSize: 12, color: '#6366F1', fontWeight: '600', textAlign: 'right', marginTop: 6 },
+
+  pinToggle: { alignSelf: 'flex-end', marginTop: 8 },
+  pinToggleText: { fontSize: 13, color: '#6366F1', fontWeight: '600' },
+  pinPickerWrap: { marginTop: 10, gap: 8 },
+  pinPickerHint: { fontSize: 12, color: '#6B7280', textAlign: 'right' },
+  pinClear: { alignSelf: 'flex-end' },
+  pinClearText: { fontSize: 12, color: '#EF4444', fontWeight: '600' },
 });

@@ -13,6 +13,7 @@ type ItemStatus = 'active' | 'sold' | 'pending';
 type AppContextType = {
   myListings: ClothingItem[];
   allListings: ClothingItem[];
+  otherListings: ClothingItem[];
   requests: InterestRequest[];
   chats: Chat[];
   ratings: Rating[];
@@ -95,6 +96,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     ? items.filter(i => i.sellerId === dbId)
     : items;
   const allListings = configured ? items : [...MOCK_ITEMS, ...items];
+  const otherListings = allListings.filter(i => dbId ? i.sellerId !== dbId : true);
   const canAddMore = myListings.length < limit;
 
   function handleSetUserLocation(loc: { latitude: number; longitude: number } | null) {
@@ -546,6 +548,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider value={{
       myListings,
       allListings,
+      otherListings,
       requests,
       chats,
       ratings,

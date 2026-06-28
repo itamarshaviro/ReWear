@@ -327,7 +327,7 @@ function NativeMapView({ items, center }: { items: ClothingItem[]; center: UserL
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function MapScreen() {
-  const { allListings, setUserLocation } = useApp();
+  const { otherListings: allListings, setUserLocation } = useApp();
   const [filterCats, setFilterCats] = useState<Set<Category>>(new Set());
   const { location, loading, denied } = useUserLocation();
 
