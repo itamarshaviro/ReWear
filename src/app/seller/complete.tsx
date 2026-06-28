@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useApp } from '@/context/app-context';
+import { useAuth } from '@/context/auth-context';
 import type { Condition } from '@/data/mock';
 import { CATEGORY_INFO, CONDITIONS, ALL_SIZES } from '@/data/mock';
 
@@ -63,13 +64,15 @@ function Field({ label, required, children }: { label: string; required?: boolea
 
 export default function CompleteScreen() {
   const { draft, setDraft, canAddMore, listingCount, limit, isPremium, upgradePremium } = useApp();
+  const { user } = useAuth();
 
   const [name, setName] = useState(draft?.name ?? '');
   const [brand, setBrand] = useState(draft?.brand ?? '');
   const [selectedCondition, setSelectedCondition] = useState<Condition | null>(draft?.condition ?? null);
   const [price, setPrice] = useState(draft?.price ? String(draft.price) : '');
   const [size, setSize] = useState(draft?.size ?? '');
-  const [location, setLocation] = useState('');
+  const userCity = user?.address ? user.address.split(',')[1]?.trim() ?? '' : '';
+  const [location, setLocation] = useState(userCity);
   const [priceMode, setPriceMode] = useState<'suggest' | 'custom'>(draft?.price ? 'suggest' : 'custom');
 
   const suggestedPrice = draft?.price;
