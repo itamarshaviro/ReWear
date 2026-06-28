@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import type { ClothingItem, InterestRequest, Chat, ChatMessage, AiDraft, Rating } from '@/data/mock';
 import type { Category, Condition } from '@/data/mock';
 import { MOCK_ITEMS } from '@/data/mock';
@@ -22,6 +22,8 @@ type AppContextType = {
   limit: number;
   draft: AiDraft | null;
   isLoadingData: boolean;
+  userLocation: { latitude: number; longitude: number } | null;
+  setUserLocation: (loc: { latitude: number; longitude: number } | null) => void;
   setDraft: (d: AiDraft | null) => void;
   addListing: (item: Omit<ClothingItem, 'id' | 'sellerId' | 'sellerName' | 'distance'>) => Promise<void>;
   deleteListing: (id: string) => Promise<void>;
@@ -56,6 +58,15 @@ const DEMO_CHAT: Chat = {
 
 const configured = isSupabaseConfigured();
 
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 function ts() {
   return new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
 }
@@ -75,6 +86,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [localPremium, setLocalPremium] = useState(false);
   const [draft, setDraft] = useState<AiDraft | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(configured);
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
 
   const isPremium = localPremium || (user?.isPremium ?? false);
   const limit = isPremium ? PREMIUM_LIMIT : FREE_LIMIT;
@@ -83,6 +96,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     : items;
   const allListings = configured ? items : [...MOCK_ITEMS, ...items];
   const canAddMore = myListings.length < limit;
+
+  function handleSetUserLocation(loc: { latitude: number; longitude: number } | null) {
+    userLocationRef.current = loc;
+    setUserLocation(loc);
+  }
 
   // ── Load all items (public) ──────────────────────────────────────────────
   useEffect(() => {
@@ -176,22 +194,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .order('created_at', { ascending: false });
 
     if (data) {
-      setItems(data.map(row => ({
-        id: row.id,
-        sellerId: row.seller_id,
-        sellerName: row.seller_name,
-        name: row.name,
-        brand: row.brand ?? '',
-        category: row.category as Category,
-        price: row.price,
-        size: row.size,
-        condition: row.condition as Condition,
-        color: row.color ?? undefined,
-        description: row.description ?? '',
-        imageUrl: row.image_url ?? '',
-        location: row.location ?? '',
-        distance: 0,
-      })));
+      const loc = userLocationRef.current;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setItems((data as any[]).map(row => {
+        let distance = 0;
+        if (loc && typeof row.lat === 'number' && typeof row.lng === 'number') {
+          distance = Math.round(haversineKm(loc.latitude, loc.longitude, row.lat, row.lng) * 10) / 10;
+        }
+        return {
+          id: row.id,
+          sellerId: row.seller_id,
+          sellerName: row.seller_name,
+          name: row.name,
+          brand: row.brand ?? '',
+          category: row.category as Category,
+          price: row.price,
+          size: row.size,
+          condition: row.condition as Condition,
+          color: row.color ?? undefined,
+          description: row.description ?? '',
+          imageUrl: row.image_url ?? '',
+          location: row.location ?? '',
+          distance,
+          lat: row.lat ?? undefined,
+          lng: row.lng ?? undefined,
+        };
+      }));
     }
     setIsLoadingData(false);
   }
@@ -292,7 +320,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const sellerName = user ? `${user.firstName} ${user.lastName[0]}.` : 'מוכר';
 
     if (configured && dbId) {
-      await supabase.from('items').insert({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('items') as any).insert({
         seller_id: dbId,
         seller_name: sellerName,
         name: item.name,
@@ -305,6 +334,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         description: item.description || null,
         image_url: item.imageUrl || null,
         location: item.location || null,
+        lat: item.lat ?? null,
+        lng: item.lng ?? null,
         is_available: true,
       });
       await loadItems();
@@ -524,6 +555,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       limit,
       draft,
       isLoadingData,
+      userLocation,
+      setUserLocation: handleSetUserLocation,
       setDraft,
       addListing,
       deleteListing,

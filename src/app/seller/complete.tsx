@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import * as Location from 'expo-location';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -74,6 +75,7 @@ export default function CompleteScreen() {
   const userCity = user?.address ? user.address.split(',')[1]?.trim() ?? '' : '';
   const [location, setLocation] = useState(userCity);
   const [priceMode, setPriceMode] = useState<'suggest' | 'custom'>(draft?.price ? 'suggest' : 'custom');
+  const gpsRef = useRef<{ lat: number; lng: number } | null>(null);
 
   const suggestedPrice = draft?.price;
 
@@ -82,6 +84,15 @@ export default function CompleteScreen() {
       router.replace('/');
     }
   }, [draft]);
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      gpsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    })();
+  }, []);
 
   if (!draft) return null;
 
@@ -123,6 +134,8 @@ export default function CompleteScreen() {
       price: parseInt(price),
       size: size.trim(),
       location: location.trim(),
+      lat: gpsRef.current?.lat,
+      lng: gpsRef.current?.lng,
     });
     router.push('/seller/preview');
   }

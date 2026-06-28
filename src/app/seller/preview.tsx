@@ -69,6 +69,8 @@ export default function PreviewScreen() {
       size: draft.size ?? '',
       location: draft.location ?? '',
       imageUrl: draft.imageUri,
+      lat: draft.lat,
+      lng: draft.lng,
     });
     setDraft(null);
     setPublished(true);

@@ -72,6 +72,8 @@ export type ClothingItem = {
   imageUrl: string;
   location: string;
   distance: number;
+  lat?: number;
+  lng?: number;
 };
 
 export type InterestRequest = {
@@ -137,6 +139,8 @@ export type AiDraft = {
   price?: number;
   size?: string;
   location?: string;
+  lat?: number;
+  lng?: number;
 };
 
 // ─── Category metadata ────────────────────────────────────────────────────────

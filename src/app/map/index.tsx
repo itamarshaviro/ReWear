@@ -17,6 +17,20 @@ import { TabBar } from '@/components/tab-bar';
 import { CATEGORIES, CATEGORY_INFO, itemCoordinates } from '@/data/mock';
 import type { Category, ClothingItem } from '@/data/mock';
 
+// Web-only: interactive Google Maps
+let GoogleMap: React.ComponentType<any> | null = null;
+let GMarker: React.ComponentType<any> | null = null;
+let useJsApiLoader: ((...args: any[]) => any) | null = null;
+if (Platform.OS === 'web') {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const gmaps = require('@react-google-maps/api');
+    GoogleMap = gmaps.GoogleMap;
+    GMarker = gmaps.Marker;
+    useJsApiLoader = gmaps.useJsApiLoader;
+  } catch { /* not available */ }
+}
+
 // react-native-maps only available in native dev builds
 let MapView: React.ComponentType<any> | null = null;
 let Marker: React.ComponentType<any> | null = null;
@@ -111,53 +125,80 @@ function ItemCard({ item, onPress }: { item: ClothingItem; onPress: () => void }
   );
 }
 
-// ── Web map — Google Static Maps API ─────────────────────────────────────────
+// ── Web map — Interactive Google Maps ────────────────────────────────────────
 function WebMapView({ items, center }: { items: ClothingItem[]; center: UserLocation }) {
   const [selectedItem, setSelectedItem] = useState<ClothingItem | null>(null);
-  const hasKey = GOOGLE_MAPS_KEY.length > 0;
 
-  const staticMapUrl = hasKey
-    ? (() => {
-        const userPin = `markers=color:red%7Clabel:★%7C${center.latitude},${center.longitude}`;
-        const itemPins = items.slice(0, 30).map((item, idx) => {
-          const c = itemCoordinates(item.distance, idx);
-          return `markers=color:0x6366F1%7Csize:small%7C${c.latitude},${c.longitude}`;
-        }).join('&');
-        return (
-          `https://maps.googleapis.com/maps/api/staticmap` +
-          `?center=${center.latitude},${center.longitude}&zoom=13&size=800x600&scale=2` +
-          `&style=feature:poi|visibility:off` +
-          `&style=feature:transit|visibility:off` +
-          `&${userPin}&${itemPins}` +
-          `&key=${GOOGLE_MAPS_KEY}`
-        );
-      })()
-    : null;
+  const loaderResult = useJsApiLoader
+    ? useJsApiLoader({ googleMapsApiKey: GOOGLE_MAPS_KEY, id: 'rewear-map' })
+    : { isLoaded: false };
+  const isLoaded = loaderResult.isLoaded;
+
+  if (!GoogleMap || !GOOGLE_MAPS_KEY) {
+    return (
+      <View style={styles.noKeyBox}>
+        <Text style={styles.noKeyEmoji}>🗺️</Text>
+        <Text style={styles.noKeyTitle}>נדרש Google Maps API Key</Text>
+        <Text style={styles.noKeyText}>הוסף EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ל-.env</Text>
+      </View>
+    );
+  }
+
+  const GM = GoogleMap!;
+  const Mk = GMarker!;
 
   return (
     <View style={styles.webContainer}>
-      {/* Big map at top */}
-      {hasKey ? (
-        <View style={styles.mapImageWrapper}>
-          <Image source={{ uri: staticMapUrl! }} style={styles.mapImage} contentFit="cover" />
-          {/* You-are-here badge */}
-          <View style={styles.locationBadge}>
-            <Text style={styles.locationBadgeText}>📍 המיקום שלך</Text>
+      <View style={styles.mapWrapper}>
+        {isLoaded ? (
+          <GM
+            mapContainerStyle={{ width: '100%', height: '100%' }}
+            center={{ lat: center.latitude, lng: center.longitude }}
+            zoom={13}
+            options={{
+              fullscreenControl: false,
+              streetViewControl: false,
+              mapTypeControl: false,
+              zoomControlOptions: { position: 7 },
+            }}
+          >
+            {/* User location */}
+            <Mk
+              position={{ lat: center.latitude, lng: center.longitude }}
+              icon={{ url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png' }}
+              title="המיקום שלך"
+            />
+            {/* Item pins */}
+            {items.map((item, idx) => {
+              const c = (typeof item.lat === 'number' && typeof item.lng === 'number')
+                ? { latitude: item.lat, longitude: item.lng }
+                : itemCoordinates(item.distance, idx);
+              return (
+                <Mk
+                  key={item.id}
+                  position={{ lat: c.latitude, lng: c.longitude }}
+                  title={`${item.name} — ₪${item.price}`}
+                  onClick={() => setSelectedItem(item)}
+                />
+              );
+            })}
+          </GM>
+        ) : (
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <ActivityIndicator size="large" color="#6366F1" />
           </View>
-          {/* Item count chip */}
-          <View style={styles.countChip}>
-            <Text style={styles.countChipText}>{items.length} פריטים קרובים</Text>
-          </View>
-        </View>
-      ) : (
-        <View style={styles.noKeyBox}>
-          <Text style={styles.noKeyEmoji}>🗺️</Text>
-          <Text style={styles.noKeyTitle}>נדרש Google Maps API Key</Text>
-          <Text style={styles.noKeyText}>הוסף EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ל-.env</Text>
-        </View>
-      )}
+        )}
 
-      {/* Items list */}
+        {selectedItem && (
+          <View style={styles.selectedCard}>
+            <TouchableOpacity onPress={() => setSelectedItem(null)} style={styles.closeBtn}>
+              <Text style={styles.closeBtnText}>✕</Text>
+            </TouchableOpacity>
+            <ItemCard item={selectedItem} onPress={() => router.push('/buyer/feed')} />
+          </View>
+        )}
+      </View>
+
       <ScrollView
         style={styles.itemsList}
         contentContainerStyle={styles.itemsListContent}
@@ -216,7 +257,9 @@ function NativeMapView({ items, center }: { items: ClothingItem[]; center: UserL
         provider={GOOGLE_MAPS_KEY ? PROVIDER_GOOGLE : undefined}
       >
         {items.map((item, idx) => {
-          const coord = itemCoordinates(item.distance, idx);
+          const coord = (typeof item.lat === 'number' && typeof item.lng === 'number')
+            ? { latitude: item.lat, longitude: item.lng }
+            : itemCoordinates(item.distance, idx);
           const catInfo = CATEGORY_INFO[item.category];
           return (
             <Mk key={item.id} coordinate={coord} onPress={() => setSelectedItem(item)}>
@@ -250,9 +293,13 @@ function NativeMapView({ items, center }: { items: ClothingItem[]; center: UserL
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function MapScreen() {
-  const { allListings } = useApp();
+  const { allListings, setUserLocation } = useApp();
   const [filterCat, setFilterCat] = useState<Category | 'all'>('all');
   const { location, loading, denied } = useUserLocation();
+
+  useEffect(() => {
+    if (location) setUserLocation(location);
+  }, [location]);
 
   const center = location ?? TEL_AVIV;
 
@@ -344,26 +391,10 @@ const styles = StyleSheet.create({
 
   // Web layout
   webContainer: { flex: 1 },
-  mapImageWrapper: {
-    height: '52%',   // big map — more than half the space
+  mapWrapper: {
+    height: '52%',
     position: 'relative',
   },
-  mapImage: { width: '100%', height: '100%' },
-  locationBadge: {
-    position: 'absolute', top: 12, right: 12,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    paddingHorizontal: 12, paddingVertical: 5,
-    borderRadius: 100,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12, shadowRadius: 6, elevation: 4,
-  },
-  locationBadgeText: { fontSize: 12, fontWeight: '700', color: '#111827' },
-  countChip: {
-    position: 'absolute', bottom: 12, left: 12,
-    backgroundColor: '#6366F1',
-    paddingHorizontal: 12, paddingVertical: 5, borderRadius: 100,
-  },
-  countChipText: { fontSize: 12, fontWeight: '700', color: '#fff' },
 
   noKeyBox: {
     height: 200, backgroundColor: '#EEF2FF',
