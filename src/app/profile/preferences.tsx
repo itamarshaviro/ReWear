@@ -100,7 +100,7 @@ export default function PreferencesScreen() {
 
   function save() {
     updatePreferences({ brands, topSizes, bottomSizes, shoeSizes, minPrice, maxPrice });
-    router.back();
+    router.canGoBack() ? router.back() : router.replace('/');
   }
 
   return (
@@ -108,7 +108,7 @@ export default function PreferencesScreen() {
       <View style={styles.header}>
         <View style={{ width: 40 }} />
         <Text style={styles.title}>העדפות קנייה</Text>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/')} style={styles.backBtn}>
           <Text style={styles.backText}>→</Text>
         </TouchableOpacity>
       </View>

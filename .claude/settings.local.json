@@ -7,7 +7,15 @@
       "Bash(git fetch *)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git config *)"
+      "Bash(git config *)",
+      "Bash(git pull *)",
+      "Bash(git ls-tree *)",
+      "Bash(git checkout *)",
+      "Bash(npm install *)",
+      "PowerShell(Get-ChildItem \"C:\\\\Program Files\\\\nodejs\" -ErrorAction SilentlyContinue; Get-ChildItem \"C:\\\\Program Files \\(x86\\)\\\\nodejs\" -ErrorAction SilentlyContinue; ls \"$env:APPDATA\\\\npm\" -ErrorAction SilentlyContinue)",
+      "Bash(git push *)",
+      "Bash(xargs grep -l \"20\\\\|premium\\\\|פרמיום\")",
+      "Bash(cd \"C:\\\\Users\\\\USER\\\\Desktop\\\\REWEAR\" && sed -i \"s/router\\\\.back\\(\\)/router.canGoBack\\(\\) ? router.back\\(\\) : router.replace\\('\\\\/'\\)/g\" src/app/auth/register.tsx src/app/buyer/category.tsx src/app/buyer/feed.tsx src/app/buyer/filters.tsx src/app/profile/index.tsx src/app/profile/preferences.tsx src/app/rating/[matchId].tsx src/app/seller/classify.tsx src/app/seller/complete.tsx src/app/seller/preview.tsx src/app/seller/upload.tsx)"
     ]
   }
 }

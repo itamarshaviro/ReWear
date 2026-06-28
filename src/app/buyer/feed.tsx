@@ -212,7 +212,7 @@ export default function FeedScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/')} style={styles.backBtn}>
           <Text style={styles.backArrow}>→</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
@@ -242,7 +242,7 @@ export default function FeedScreen() {
             <Text style={styles.emptyEmoji}>{filtered.length === 0 ? '🔍' : '✨'}</Text>
             <Text style={styles.emptyTitle}>{filtered.length === 0 ? 'לא נמצאו פריטים' : 'ראית הכל!'}</Text>
             <Text style={styles.emptySub}>נסה לשנות את הסינון או חזור מאוחר יותר</Text>
-            <TouchableOpacity style={styles.backFilterBtn} onPress={() => router.back()}>
+            <TouchableOpacity style={styles.backFilterBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/')}>
               <Text style={styles.backFilterText}>שנה סינון</Text>
             </TouchableOpacity>
           </View>

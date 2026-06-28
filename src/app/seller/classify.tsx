@@ -48,7 +48,7 @@ export default function ClassifyScreen() {
         <View style={styles.header}>
           <View style={{ width: 40 }} />
           <Text style={styles.title}>הוספת פריט</Text>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/')} style={styles.backBtn}>
             <Text style={styles.backText}>→</Text>
           </TouchableOpacity>
         </View>
@@ -62,7 +62,7 @@ export default function ClassifyScreen() {
           <TouchableOpacity style={styles.limitUpgradeBtn} onPress={() => router.push('/seller/upgrade')} activeOpacity={0.85}>
             <Text style={styles.limitUpgradeBtnText}>⭐ שדרג לפרמיום · ₪20/חודש</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.limitBackBtn} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.limitBackBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/')}>
             <Text style={styles.limitBackBtnText}>חזור</Text>
           </TouchableOpacity>
         </View>
@@ -117,7 +117,7 @@ export default function ClassifyScreen() {
       <View style={styles.header}>
         <View style={{ width: 40 }} />
         <Text style={styles.title}>מה אתה מוכר?</Text>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/')} style={styles.backBtn}>
           <Text style={styles.backText}>→</Text>
         </TouchableOpacity>
       </View>
