@@ -68,7 +68,7 @@ export default function CompleteScreen() {
   const [brand, setBrand] = useState(draft?.brand ?? '');
   const [selectedCondition, setSelectedCondition] = useState<Condition | null>(draft?.condition ?? null);
   const [price, setPrice] = useState(draft?.price ? String(draft.price) : '');
-  const [size, setSize] = useState('');
+  const [size, setSize] = useState(draft?.size ?? '');
   const [location, setLocation] = useState('');
   const [priceMode, setPriceMode] = useState<'suggest' | 'custom'>(draft?.price ? 'suggest' : 'custom');
 

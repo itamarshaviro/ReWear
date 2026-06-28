@@ -183,6 +183,7 @@ export default function UploadScreen() {
       description: aiResult.description,
       price: aiResult.price,
       confidence: conf,
+      size: sellerSize.trim() || undefined,
     });
     router.push('/seller/complete');
   }
