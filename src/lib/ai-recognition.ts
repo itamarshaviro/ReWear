@@ -121,6 +121,13 @@ const CONDITION_MULT: Record<Condition, number> = {
   'for-parts':       0.10,
 };
 
+// Sport brands get an extra -20% (sweat items depreciate faster)
+const SPORT_BRANDS = new Set([
+  'Nike', 'Adidas', 'Puma', 'New Balance', 'Under Armour', 'Reebok', 'ASICS',
+  'Fila', 'Champion', 'Kappa', 'Rip Curl', 'Billabong', 'Quiksilver',
+  "O'Neill", 'Volcom', 'Hurley', 'Skechers',
+]);
+
 const BRAND_TIER_MULT: Record<string, number> = {
   // Luxury +10%
   'Gucci': 1.10, 'Prada': 1.10, 'Louis Vuitton': 1.10, 'Balenciaga': 1.10,
@@ -138,8 +145,9 @@ export function suggestPrice(brand: string | undefined, condition: Condition = '
   if (!brand) return undefined; // no brand → no suggestion
   const base: number = BRAND_BASE_PRICE[brand] ?? 0;
   if (!base) return undefined; // unknown brand → no suggestion
-  const tierMult = BRAND_TIER_MULT[brand] ?? 1.0;
-  const price = Math.round(base * CONDITION_MULT[condition] * tierMult);
+  const tierMult  = BRAND_TIER_MULT[brand] ?? 1.0;
+  const sportMult = SPORT_BRANDS.has(brand) ? 0.80 : 1.0; // sport items -20%
+  const price = Math.round(base * CONDITION_MULT[condition] * tierMult * sportMult);
   return Math.max(20, Math.round(price / 5) * 5); // round to nearest 5, min ₪20
 }
 
