@@ -126,16 +126,9 @@ export default function UploadScreen() {
 
     let aiRes: AiResult;
     if (hfResult && (hfResult.category || hfResult.brand)) {
-      const CATEGORY_HE: Partial<Record<Category, string>> = {
-        'mens-pants': 'מכנסיים', 'mens-shirts': 'חולצה', 'womens-dresses': 'שמלה',
-        'mens-tops': 'גופייה', 'womens-pants': 'מכנסיים',
-        'womens-shirts': 'חולצה', 'womens-tops': 'גופייה', 'mens-shoes': 'נעליים', 'womens-shoes': 'נעליים',
-        'accessories': 'אביזר',
-      };
       const cat = hfResult.category ?? 'accessories';
-      const catName = CATEGORY_HE[cat] ?? 'פריט';
       const color = hfResult.color ?? undefined;
-      const name = `${hfResult.brand ? hfResult.brand + ' ' : ''}${catName}${color ? ' ' + color : ''}`;
+      const name = hfResult.name; // already built with correct Hebrew grammar in buildResult
       const condition = hfResult.condition ?? 'good';
 
       aiRes = {

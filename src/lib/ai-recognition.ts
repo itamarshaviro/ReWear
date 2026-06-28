@@ -230,16 +230,45 @@ export type RecognitionResult = {
   };
 };
 
+// Category → construct state (סמיכות) + grammatical gender (m/f)
+const CATEGORY_CONSTRUCT: Partial<Record<Category, { construct: string; gender: 'f' | 'm' | 'p' }>> = {
+  'mens-shirts':    { construct: 'חולצת',   gender: 'f' },
+  'womens-shirts':  { construct: 'חולצת',   gender: 'f' },
+  'mens-tops':      { construct: 'גופיית',  gender: 'f' },
+  'womens-tops':    { construct: 'גופיית',  gender: 'f' },
+  'mens-pants':     { construct: 'מכנסי',   gender: 'p' },
+  'womens-pants':   { construct: 'מכנסי',   gender: 'p' },
+  'womens-dresses': { construct: 'שמלת',    gender: 'f' },
+  'mens-shoes':     { construct: 'נעלי',    gender: 'p' },
+  'womens-shoes':   { construct: 'נעלי',    gender: 'p' },
+  'accessories':    { construct: 'אביזר של', gender: 'm' },
+};
+
+// Color → feminine form (used when category is feminine)
+const COLOR_FEMININE: Record<string, string> = {
+  'לבן': 'לבנה', 'שחור': 'שחורה', 'אפור': 'אפורה', 'כחול': 'כחולה',
+  'כחול כהה': 'כחולה כהה', 'כחול בהיר': 'כחולה בהירה',
+  'אדום': 'אדומה', 'ירוק': 'ירוקה', 'ירוק כהה': 'ירוקה כהה',
+  'חום': 'חומה', 'חום כהה': 'חומה כהה', 'חום בהיר': 'חומה בהירה',
+  'ורוד': 'ורודה', 'ורוד בהיר': 'ורודה בהירה', 'ורוד חם': 'ורודה חמה',
+  'צהוב': 'צהובה', 'כתום': 'כתומה', 'סגול': 'סגולה',
+  'צבעוני': 'צבעונית',
+  // Invariable (foreign/borrowed words stay the same)
+  'נייבי': 'נייבי', "בז'": "בז'", 'קרם': 'קרם', 'בורדו': 'בורדו',
+  'טורקיז': 'טורקיז', 'זית': 'זית', 'חאקי': 'חאקי',
+  'כסף': 'כסף', 'זהב': 'זהב', 'ניאון': 'ניאון', 'מנטה': 'מנטה',
+  'לבנדר': 'לבנדר', 'קורל': 'קורל',
+};
+
+function genderedColor(color: string, gender: 'f' | 'm' | 'p'): string {
+  if (gender === 'f') return COLOR_FEMININE[color] ?? color;
+  return color; // masculine/plural — use base form
+}
+
 function buildResult(caption: string, brand?: string, color?: string, category?: Category, condition?: Condition, aiPrice?: number): RecognitionResult {
-  const CATEGORY_HE: Partial<Record<Category, string>> = {
-    'mens-pants': 'מכנסיים', 'mens-shirts': 'חולצה', 'womens-dresses': 'שמלה',
-    'mens-tops': 'גופייה', 'womens-pants': 'מכנסיים',
-    'womens-shirts': 'חולצה', 'womens-tops': 'גופייה', 'mens-shoes': 'נעליים', 'womens-shoes': 'נעליים',
-    'accessories': 'אביזר',
-  };
-  const catName = category ? CATEGORY_HE[category] : undefined;
-  const name = catName
-    ? `${brand ? brand + ' ' : ''}${catName}${color ? ' ' + color : ''}`
+  const catInfo = category ? CATEGORY_CONSTRUCT[category] : undefined;
+  const name = catInfo
+    ? `${catInfo.construct}${brand ? ' ' + brand : ''}${color ? ' ' + genderedColor(color, catInfo.gender) : ''}`
     : undefined;
   const price = aiPrice ?? suggestPrice(brand, condition ?? 'good');
 
