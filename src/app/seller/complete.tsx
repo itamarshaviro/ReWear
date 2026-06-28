@@ -54,7 +54,7 @@ type LatLng = { lat: number; lng: number };
 
 function PinPicker({ value, onChange }: { value: LatLng | null; onChange: (p: LatLng) => void }) {
   const loaderResult = useJsApiLoader
-    ? useJsApiLoader({ googleMapsApiKey: GOOGLE_MAPS_KEY, id: 'rewear-pin' })
+    ? useJsApiLoader({ googleMapsApiKey: GOOGLE_MAPS_KEY, id: 'rewear-map' })
     : { isLoaded: false };
   if (!GoogleMap || !GMarker || !GOOGLE_MAPS_KEY || !loaderResult.isLoaded) {
     return <Text style={{ color: '#9CA3AF', fontSize: 13, textAlign: 'right' }}>טוען מפה...</Text>;
