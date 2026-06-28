@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -14,14 +15,16 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useApp } from '@/context/app-context';
-import { AI_RESULTS_BY_CATEGORY, CONDITION_LABELS } from '@/data/mock';
+import { AI_RESULTS_BY_CATEGORY, CONDITION_LABELS, CONDITIONS } from '@/data/mock';
 import { enhanceImage, isCloudinaryConfigured } from '@/lib/cloudinary';
 import { recognizeFromUrl, hexToHebrewColor, suggestPrice, checkImageQuality, isGeminiConfigured, isOpenAIConfigured } from '@/lib/ai-recognition';
 import { useLocalSearchParams } from 'expo-router';
-import type { Category, AiConfidence } from '@/data/mock';
+import type { Category, AiConfidence, Condition } from '@/data/mock';
 import type { EnhanceResult } from '@/lib/cloudinary';
 
-type Phase = 'pick' | 'checking' | 'uploading' | 'recognizing' | 'enhanced';
+type Phase = 'pick' | 'checking' | 'details' | 'uploading' | 'recognizing' | 'enhanced';
+
+const CUT_OPTIONS = ['ישר', 'צר (Slim)', 'רחב', 'אוברסייז', 'קרופ', 'מתרחב', 'רגיל'];
 type AiResult = typeof AI_RESULTS_BY_CATEGORY[Category];
 
 const CONFIDENCE_THRESHOLD = 0.70;
@@ -51,6 +54,13 @@ export default function UploadScreen() {
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const [qualityError, setQualityError] = useState<string | null>(null);
   const [badImageUri, setBadImageUri] = useState<string | null>(null);
+  const [pendingUri, setPendingUri] = useState<string | null>(null);
+
+  // Seller-provided hints
+  const [sellerBrand, setSellerBrand] = useState('');
+  const [sellerCondition, setSellerCondition] = useState<Condition | null>(null);
+  const [sellerCut, setSellerCut] = useState<string | null>(null);
+  const [sellerSize, setSellerSize] = useState('');
 
   async function pickImage(source: 'camera' | 'gallery') {
     let result: ImagePicker.ImagePickerResult;
@@ -80,6 +90,15 @@ export default function UploadScreen() {
       return;
     }
 
+    // Step 0.5: show details form so seller can add hints
+    setPendingUri(uri);
+    setPhase('details');
+  }
+
+  async function runRecognition() {
+    if (!pendingUri) return;
+    const uri = pendingUri;
+
     let enhanceResult: EnhanceResult = { originalUri: uri, enhancedUri: uri, isDemo: true };
 
     // Step 1: Cloudinary upload + enhancement
@@ -99,6 +118,10 @@ export default function UploadScreen() {
     const hfResult = await recognizeFromUrl(targetUrl, {
       category: preCategory as Category | undefined,
       gender: preGender,
+      sellerBrand:     sellerBrand.trim()     || undefined,
+      sellerCondition: sellerCondition        ?? undefined,
+      sellerCut:       sellerCut              ?? undefined,
+      sellerSize:      sellerSize.trim()      || undefined,
     }).catch(() => null);
 
     let aiRes: AiResult;
@@ -261,6 +284,83 @@ export default function UploadScreen() {
         </View>
       )}
 
+      {/* ── Phase: details form ── */}
+      {phase === 'details' && pendingUri && (
+        <ScrollView contentContainerStyle={styles.detailsArea} showsVerticalScrollIndicator={false}>
+          <View style={styles.detailsImageRow}>
+            <Image source={{ uri: pendingUri }} style={styles.detailsThumb} contentFit="cover" />
+            <View style={styles.detailsImageInfo}>
+              <Text style={styles.detailsTitle}>עזור לAI לזהות</Text>
+              <Text style={styles.detailsSub}>מלא פרטים שאתה יודע — כל שדה משפר את הדיוק. הכל אופציונלי.</Text>
+            </View>
+          </View>
+
+          {/* Brand */}
+          <View style={styles.detailsField}>
+            <Text style={styles.detailsLabel}>מותג <Text style={styles.detailsOptional}>(אופציונלי)</Text></Text>
+            <TextInput
+              style={styles.detailsInput}
+              placeholder="Nike, Zara, H&M..."
+              value={sellerBrand}
+              onChangeText={setSellerBrand}
+              textAlign="right"
+              autoCorrect={false}
+            />
+          </View>
+
+          {/* Condition */}
+          <View style={styles.detailsField}>
+            <Text style={styles.detailsLabel}>מצב הפריט <Text style={styles.detailsOptional}>(אופציונלי)</Text></Text>
+            <View style={styles.chipRow}>
+              {CONDITIONS.map(c => (
+                <TouchableOpacity
+                  key={c.value}
+                  style={[styles.chip, sellerCondition === c.value && styles.chipActive]}
+                  onPress={() => setSellerCondition(sellerCondition === c.value ? null : c.value)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.chipText, sellerCondition === c.value && styles.chipTextActive]}>{c.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Cut */}
+          <View style={styles.detailsField}>
+            <Text style={styles.detailsLabel}>גזרה <Text style={styles.detailsOptional}>(אופציונלי)</Text></Text>
+            <View style={styles.chipRow}>
+              {CUT_OPTIONS.map(cut => (
+                <TouchableOpacity
+                  key={cut}
+                  style={[styles.chip, sellerCut === cut && styles.chipActive]}
+                  onPress={() => setSellerCut(sellerCut === cut ? null : cut)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.chipText, sellerCut === cut && styles.chipTextActive]}>{cut}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Size */}
+          <View style={styles.detailsField}>
+            <Text style={styles.detailsLabel}>מידה <Text style={styles.detailsOptional}>(אופציונלי)</Text></Text>
+            <TextInput
+              style={styles.detailsInput}
+              placeholder="S, M, L, XL, 32, 42..."
+              value={sellerSize}
+              onChangeText={setSellerSize}
+              textAlign="right"
+              autoCorrect={false}
+            />
+          </View>
+
+          <TouchableOpacity style={styles.detailsBtn} onPress={runRecognition} activeOpacity={0.85}>
+            <Text style={styles.detailsBtnText}>המשך לזיהוי AI ✨</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      )}
+
       {/* ── Phase: uploading ── */}
       {phase === 'uploading' && (
         <View style={styles.processingArea}>
@@ -335,6 +435,15 @@ export default function UploadScreen() {
                 <Text style={styles.aiCardTitle}>זיהוי AI</Text>
                 <View style={styles.aiTag}><Text style={styles.aiTagText}>✨ AI</Text></View>
               </View>
+              {(sellerBrand || sellerCondition || sellerCut || sellerSize) && (
+                <View style={styles.hintsUsedBadge}>
+                  <Text style={styles.hintsUsedText}>
+                    🧠 שולב עם הפרטים שמסרת
+                    {sellerBrand ? ` · ${sellerBrand}` : ''}
+                    {sellerCut ? ` · ${sellerCut}` : ''}
+                  </Text>
+                </View>
+              )}
               <View style={styles.confTable}>
                 <ConfidenceRow label="שם"   value={aiResult.name}       conf={conf?.name} />
                 <ConfidenceRow label="מותג" value={aiResult.brand}      conf={conf?.brand} />
@@ -499,4 +608,37 @@ const styles = StyleSheet.create({
     shadowColor: '#6366F1', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6,
   },
   continueBtnText: { fontSize: 16, fontWeight: '800', color: '#fff' },
+
+  // Details phase
+  detailsArea: { padding: 20, gap: 20, paddingBottom: 40 },
+  detailsImageRow: { flexDirection: 'row-reverse', gap: 14, alignItems: 'center' },
+  detailsThumb: { width: 90, height: 110, borderRadius: 16 },
+  detailsImageInfo: { flex: 1, gap: 6 },
+  detailsTitle: { fontSize: 18, fontWeight: '800', color: '#111827', textAlign: 'right' },
+  detailsSub: { fontSize: 13, color: '#6B7280', textAlign: 'right', lineHeight: 20 },
+  detailsField: { gap: 8 },
+  detailsLabel: { fontSize: 14, fontWeight: '700', color: '#374151', textAlign: 'right' },
+  detailsOptional: { fontSize: 12, color: '#9CA3AF', fontWeight: '400' },
+  detailsInput: {
+    backgroundColor: '#fff', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
+    fontSize: 15, color: '#111827', borderWidth: 1.5, borderColor: '#E5E7EB',
+  },
+  chipRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 20,
+    paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#fff',
+  },
+  chipActive: { borderColor: '#6366F1', backgroundColor: '#EEF2FF' },
+  chipText: { fontSize: 13, color: '#6B7280' },
+  chipTextActive: { color: '#6366F1', fontWeight: '700' },
+  detailsBtn: {
+    backgroundColor: '#6366F1', borderRadius: 16, paddingVertical: 18, alignItems: 'center',
+    shadowColor: '#6366F1', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6,
+  },
+  detailsBtnText: { fontSize: 16, fontWeight: '800', color: '#fff' },
+  hintsUsedBadge: {
+    backgroundColor: '#F0FDF4', borderRadius: 10, padding: 8,
+    borderWidth: 1, borderColor: '#BBF7D0',
+  },
+  hintsUsedText: { fontSize: 12, color: '#15803D', fontWeight: '600', textAlign: 'right' },
 });

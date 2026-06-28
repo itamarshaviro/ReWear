@@ -113,18 +113,34 @@ const BRAND_BASE_PRICE: Record<string, number> = {
 };
 
 const CONDITION_MULT: Record<Condition, number> = {
-  'new-with-tag': 0.85,
-  'new-without-tag': 0.70,
-  'perfect': 0.55,
-  'good': 0.40,
-  'fair': 0.25,
-  'for-parts': 0.10,
+  'new-with-tag':    0.75,
+  'new-without-tag': 0.65,
+  'perfect':         0.60,
+  'good':            0.45,
+  'fair':            0.30,
+  'for-parts':       0.10,
 };
 
-export function suggestPrice(brand: string | undefined, condition: Condition = 'good'): number {
-  const base: number = brand ? (BRAND_BASE_PRICE[brand] ?? 90) : 90;
-  const price = Math.round(base * CONDITION_MULT[condition]);
-  return Math.max(10, Math.round(price / 5) * 5); // round to nearest 5, min ₪10
+const BRAND_TIER_MULT: Record<string, number> = {
+  // Luxury +10%
+  'Gucci': 1.10, 'Prada': 1.10, 'Louis Vuitton': 1.10, 'Balenciaga': 1.10,
+  'Versace': 1.10, 'Armani': 1.10, 'Burberry': 1.10, 'Off-White': 1.10,
+  // Premium fashion +5%
+  'Ralph Lauren': 1.05, 'Calvin Klein': 1.05, 'Tommy Hilfiger': 1.05,
+  'Hugo Boss': 1.05, 'Lacoste': 1.05, 'Diesel': 1.05, 'Patagonia': 1.05,
+  'The North Face': 1.05, 'Dr. Martens': 1.05, 'Birkenstock': 1.05,
+  // Fast fashion -10%
+  'SHEIN': 0.90, 'Primark': 0.90, 'Bershka': 0.90, 'Pull&Bear': 0.90,
+  'Stradivarius': 0.90,
+};
+
+export function suggestPrice(brand: string | undefined, condition: Condition = 'good'): number | undefined {
+  if (!brand) return undefined; // no brand → no suggestion
+  const base: number = BRAND_BASE_PRICE[brand] ?? 0;
+  if (!base) return undefined; // unknown brand → no suggestion
+  const tierMult = BRAND_TIER_MULT[brand] ?? 1.0;
+  const price = Math.round(base * CONDITION_MULT[condition] * tierMult);
+  return Math.max(20, Math.round(price / 5) * 5); // round to nearest 5, min ₪20
 }
 
 // ── Category keywords ──────────────────────────────────────────────────────────
@@ -309,6 +325,10 @@ const CATEGORY_EN: Partial<Record<Category, string>> = {
 export type RecognitionHint = {
   category?: Category;
   gender?: string;
+  sellerBrand?: string;
+  sellerCondition?: Condition;
+  sellerCut?: string;
+  sellerSize?: string;
 };
 
 // ── Gemini Vision ──────────────────────────────────────────────────────────────
@@ -358,8 +378,15 @@ async function recognizeWithGemini(
   const categoryHint = hint?.category
     ? `The user said this is: ${CATEGORY_EN[hint.category] ?? hint.category}.`
     : '';
+  const sellerHints = [
+    hint?.sellerBrand     ? `Brand (seller says): ${hint.sellerBrand}`        : '',
+    hint?.sellerCondition ? `Condition (seller says): ${hint.sellerCondition}` : '',
+    hint?.sellerCut       ? `Cut/style (seller says): ${hint.sellerCut}`       : '',
+    hint?.sellerSize      ? `Size (seller says): ${hint.sellerSize}`           : '',
+  ].filter(Boolean).join('. ');
 
   const prompt = `Analyze this secondhand clothing image for a resale marketplace. ${categoryHint}
+${sellerHints ? `Seller-provided details (use as strong hints): ${sellerHints}` : ''}
 
 Read any visible text or logos carefully — brand names are often printed or embroidered on the item.
 
@@ -432,8 +459,15 @@ async function recognizeWithOpenAI(
   const categoryHint = hint?.category
     ? `The user indicated this is: ${CATEGORY_EN[hint.category] ?? hint.category}.`
     : '';
+  const sellerHints = [
+    hint?.sellerBrand     ? `Brand (seller says): ${hint.sellerBrand}`        : '',
+    hint?.sellerCondition ? `Condition (seller says): ${hint.sellerCondition}` : '',
+    hint?.sellerCut       ? `Cut/style (seller says): ${hint.sellerCut}`       : '',
+    hint?.sellerSize      ? `Size (seller says): ${hint.sellerSize}`           : '',
+  ].filter(Boolean).join('. ');
 
   const prompt = `You are analyzing a secondhand clothing photo for a resale marketplace app in Israel. ${categoryHint}
+${sellerHints ? `\nSeller-provided details (use these as strong hints, but verify with image): ${sellerHints}` : ''}
 
 Look carefully — read ANY text or logo visible on the clothing to identify the brand.
 

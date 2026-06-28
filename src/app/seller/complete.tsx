@@ -70,6 +70,9 @@ export default function CompleteScreen() {
   const [price, setPrice] = useState(draft?.price ? String(draft.price) : '');
   const [size, setSize] = useState('');
   const [location, setLocation] = useState('');
+  const [priceMode, setPriceMode] = useState<'suggest' | 'custom'>(draft?.price ? 'suggest' : 'custom');
+
+  const suggestedPrice = draft?.price;
 
   useEffect(() => {
     if (!draft) {
@@ -212,14 +215,47 @@ export default function CompleteScreen() {
 
           {/* Price */}
           <Field label="מחיר (₪)" required>
-            <TextInput
-              style={styles.input}
-              placeholder="לדוגמה: 120"
-              keyboardType="numeric"
-              value={price}
-              onChangeText={setPrice}
-              textAlign="right"
-            />
+            {suggestedPrice && priceMode === 'suggest' ? (
+              <View style={styles.priceSuggestCard}>
+                <View style={styles.priceSuggestHeader}>
+                  <Text style={styles.priceSuggestLabel}>הצעת AI לפי מותג ומצב הפריט</Text>
+                  <Text style={styles.priceSuggestIcon}>💡</Text>
+                </View>
+                <Text style={styles.priceSuggestAmount}>₪{suggestedPrice}</Text>
+                <View style={styles.priceSuggestBtns}>
+                  <TouchableOpacity
+                    style={styles.priceSuggestAccept}
+                    onPress={() => { setPrice(String(suggestedPrice)); }}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.priceSuggestAcceptText}>✓ קבל הצעה</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.priceSuggestOverride}
+                    onPress={() => { setPriceMode('custom'); setPrice(''); }}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.priceSuggestOverrideText}>הזן מחיר אחר</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View>
+                <TextInput
+                  style={styles.input}
+                  placeholder="לדוגמה: 120"
+                  keyboardType="numeric"
+                  value={price}
+                  onChangeText={setPrice}
+                  textAlign="right"
+                />
+                {suggestedPrice && (
+                  <TouchableOpacity onPress={() => { setPriceMode('suggest'); setPrice(String(suggestedPrice)); }}>
+                    <Text style={styles.backToSuggest}>← חזור להצעת AI (₪{suggestedPrice})</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </Field>
 
           {/* Size */}
@@ -342,4 +378,26 @@ const styles = StyleSheet.create({
   },
   previewBtnDisabled: { backgroundColor: '#9CA3AF', shadowOpacity: 0.1 },
   previewBtnText: { fontSize: 17, fontWeight: '800', color: '#fff' },
+
+  priceSuggestCard: {
+    backgroundColor: '#FFF7ED', borderRadius: 16, padding: 16, gap: 10,
+    borderWidth: 1.5, borderColor: '#FED7AA',
+  },
+  priceSuggestHeader: { flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between' },
+  priceSuggestIcon: { fontSize: 20 },
+  priceSuggestLabel: { fontSize: 13, color: '#92400E', fontWeight: '600', textAlign: 'right' },
+  priceSuggestAmount: { fontSize: 36, fontWeight: '900', color: '#D97706', textAlign: 'right' },
+  priceSuggestBtns: { flexDirection: 'row-reverse', gap: 10 },
+  priceSuggestAccept: {
+    flex: 1, backgroundColor: '#6366F1', borderRadius: 12,
+    paddingVertical: 12, alignItems: 'center',
+  },
+  priceSuggestAcceptText: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  priceSuggestOverride: {
+    flex: 1, backgroundColor: '#fff', borderRadius: 12,
+    paddingVertical: 12, alignItems: 'center',
+    borderWidth: 1.5, borderColor: '#E5E7EB',
+  },
+  priceSuggestOverrideText: { fontSize: 15, fontWeight: '600', color: '#374151' },
+  backToSuggest: { fontSize: 12, color: '#6366F1', fontWeight: '600', textAlign: 'right', marginTop: 6 },
 });
