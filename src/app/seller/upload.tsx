@@ -429,7 +429,7 @@ export default function UploadScreen() {
                 <Text style={styles.aiCardTitle}>זיהוי AI</Text>
                 <View style={styles.aiTag}><Text style={styles.aiTagText}>✨ AI</Text></View>
               </View>
-              {(sellerBrand || sellerCondition || sellerCut || sellerSize) && (
+              {!!(sellerBrand || sellerCondition || sellerCut || sellerSize) && (
                 <View style={styles.hintsUsedBadge}>
                   <Text style={styles.hintsUsedText}>
                     🧠 שולב עם הפרטים שמסרת
