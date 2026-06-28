@@ -89,6 +89,10 @@ export default function CompleteScreen() {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return;
+      // Use cached position immediately so it's ready before user taps Preview
+      const last = await Location.getLastKnownPositionAsync();
+      if (last) gpsRef.current = { lat: last.coords.latitude, lng: last.coords.longitude };
+      // Then overwrite with fresh accurate position
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       gpsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
     })();
