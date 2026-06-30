@@ -38,7 +38,8 @@ type AppContextType = {
   sendMessage: (chatId: string, text: string, from: 'buyer' | 'seller') => Promise<void>;
   markSold: (chatId: string) => Promise<void>;
   buyerConfirmSold: (chatId: string) => Promise<void>;
-  submitRating: (chatId: string, score: number, review: string, role: 'buyer' | 'seller') => Promise<void>;
+  buyerDeclineSold: (chatId: string) => Promise<void>;
+  submitRating: (chatId: string, score: number, review: string, role: 'buyer' | 'seller', isReport?: boolean, reportReason?: string) => Promise<void>;
   upgradePremium: () => Promise<void>;
 };
 
@@ -110,6 +111,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadItems();
   }, []);
 
+  // ── Recalculate distances when GPS arrives (items loaded before GPS) ──────
+  useEffect(() => {
+    if (!userLocation) return;
+    setItems(prev => prev.map(item => {
+      if (typeof item.lat === 'number' && typeof item.lng === 'number') {
+        const distance = Math.round(
+          haversineKm(userLocation.latitude, userLocation.longitude, item.lat, item.lng) * 10
+        ) / 10;
+        return { ...item, distance };
+      }
+      return item;
+    }));
+  }, [userLocation]);
+
   // ── Load user-specific data when logged in ───────────────────────────────
   useEffect(() => {
     if (!configured || !dbId) return;
@@ -143,7 +158,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .channel(`messages:${dbId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload) => {
-          const row = payload.new as { id: string; match_id: string; sender_id: string; text: string; created_at: string };
+          const row = payload.new as { id: string; match_id: string; sender_id: string; text: string; created_at: string; type?: string };
           const msgDate = new Date(row.created_at);
           const newMsg: ChatMessage = {
             id: row.id,
@@ -151,6 +166,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             from: row.sender_id === dbId ? 'seller' : 'buyer',
             timestamp: msgDate.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
             date: dateStr(msgDate),
+            type: (row.type === 'sold_notification') ? 'sold_notification' : 'text',
           };
           setChats(prev => prev.map(c => {
             if (c.id !== row.match_id) return c;
@@ -262,13 +278,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     type MatchWithItem = {
       id: string; item_id: string; buyer_id: string; seller_id: string;
       buyer_name: string; status: string; created_at: string;
-      seller_marked_sold: boolean;
+      seller_marked_sold: boolean; seller_id_for_review?: string;
       items: { name: string; image_url: string | null; seller_name: string; price: number | null } | null;
     };
     const { data: matchesRaw } = await supabase
       .from('matches')
       .select('*, items(name, image_url, seller_name, price)')
-      .in('status', ['accepted', 'on_hold'] as ('accepted' | 'pending' | 'declined')[])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .in('status', ['accepted', 'on_hold', 'completed'] as any)
       .or(`seller_id.eq.${dbId},buyer_id.eq.${dbId}`)
       .order('created_at', { ascending: false });
     const matches = matchesRaw as unknown as MatchWithItem[] | null;
@@ -292,6 +309,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         from: msg.sender_id === dbId ? 'seller' : 'buyer',
         timestamp: md.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
         date: dateStr(md),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        type: (msg as any).type ?? 'text',
       });
     }
 
@@ -307,7 +326,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         itemPrice: item?.price ?? undefined,
         otherPartyName,
         messages: msgsByMatch[m.id] ?? [],
-        isClosed: false,
+        isClosed: m.status === 'completed',
         isSeller,
         sellerMarkedSold: m.seller_marked_sold ?? false,
       };
@@ -493,36 +512,73 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (configured && dbId) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from('matches') as any).update({ seller_marked_sold: true }).eq('id', chatId);
-      await supabase.from('messages').insert({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('messages') as any).insert({
         match_id: chatId, sender_id: dbId,
-        text: '📦 סימנתי שהפריט נמכר. אנא אשר/י את הרכישה כדי לסיים את העסקה.',
+        text: 'הפריט נמכר ✅',
+        type: 'sold_notification',
         is_read: false,
       });
       await loadChats();
       return;
     }
-    setChats(prev => prev.map(c => c.id === chatId ? { ...c, sellerMarkedSold: true } : c));
+    setChats(prev => prev.map(c => c.id === chatId
+      ? {
+          ...c,
+          sellerMarkedSold: true,
+          messages: [...c.messages, {
+            id: `sold-${Date.now()}`,
+            text: 'הפריט נמכר ✅',
+            from: 'seller',
+            timestamp: ts(),
+            date: dateStr(),
+            type: 'sold_notification' as const,
+          }],
+        }
+      : c
+    ));
   }
 
   async function buyerConfirmSold(chatId: string) {
     if (configured) {
-      const { data: match } = await supabase.from('matches').select('item_id').eq('id', chatId).single();
+      const { data: match } = await supabase.from('matches').select('item_id, seller_id').eq('id', chatId).single();
       if (match) {
-        await supabase.from('items').update({ is_available: false }).eq('id', match.item_id);
+        const m = match as { item_id: string; seller_id: string };
+        await supabase.from('items').update({ is_available: false }).eq('id', m.item_id);
+        // Increment seller's sold counter atomically via DB function
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.rpc as any)('increment_items_sold', { p_user_id: m.seller_id });
         await loadItems();
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('matches') as any).update({ status: 'completed' }).eq('id', chatId);
     }
     setChats(prev => prev.map(c => c.id === chatId ? { ...c, isClosed: true, sellerMarkedSold: false } : c));
   }
 
-  async function submitRating(chatId: string, score: number, review: string, role: 'buyer' | 'seller') {
+  async function buyerDeclineSold(chatId: string) {
+    if (configured) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('matches') as any).update({ seller_marked_sold: false }).eq('id', chatId);
+      await loadChats();
+      return;
+    }
+    setChats(prev => prev.map(c => c.id === chatId ? { ...c, sellerMarkedSold: false } : c));
+  }
+
+  async function submitRating(chatId: string, score: number, review: string, role: 'buyer' | 'seller', isReport = false, reportReason = '') {
     if (configured && dbId) {
-      await supabase.from('ratings').insert({
+      const { data: matchData } = await supabase.from('matches').select('seller_id').eq('id', chatId).single();
+      const sellerId = (matchData as { seller_id: string } | null)?.seller_id ?? null;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('reviews') as any).insert({
         match_id: chatId,
         reviewer_id: dbId,
+        seller_id: sellerId,
         score,
-        review,
-        role,
+        review: review || null,
+        is_report: isReport,
+        report_reason: (isReport && reportReason) ? reportReason : null,
       });
       return;
     }
@@ -573,6 +629,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       sendMessage,
       markSold,
       buyerConfirmSold,
+      buyerDeclineSold,
       submitRating,
       upgradePremium,
     }}>

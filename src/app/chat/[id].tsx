@@ -80,16 +80,55 @@ function Bubble({ msg }: { msg: ChatMessage }) {
   );
 }
 
+function SoldBubble({
+  msg,
+  isSeller,
+  isConfirmed,
+  onConfirm,
+  onDecline,
+}: {
+  msg: ChatMessage;
+  isSeller: boolean;
+  isConfirmed: boolean;
+  onConfirm: () => void;
+  onDecline: () => void;
+}) {
+  return (
+    <View style={styles.soldBubbleWrap}>
+      <View style={styles.soldBubble}>
+        <Text style={styles.soldBubbleTitle}>📦 הפריט נמכר ✅</Text>
+        {isConfirmed ? (
+          <Text style={styles.soldBubbleDone}>העסקה אושרה!</Text>
+        ) : isSeller ? (
+          <Text style={styles.soldBubblePending}>ממתין לאישור הקונה...</Text>
+        ) : (
+          <>
+            <Text style={styles.soldBubbleQuestion}>המוכר סימן שהפריט נמכר לך. מאשר?</Text>
+            <View style={styles.soldBubbleBtns}>
+              <TouchableOpacity style={styles.soldBubbleNo} onPress={onDecline} activeOpacity={0.8}>
+                <Text style={styles.soldBubbleNoText}>לא</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.soldBubbleYes} onPress={onConfirm} activeOpacity={0.85}>
+                <Text style={styles.soldBubbleYesText}>כן, קניתי ✓</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+        <Text style={styles.soldBubbleTime}>{msg.timestamp}</Text>
+      </View>
+    </View>
+  );
+}
+
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { chats, sendMessage, markSold, buyerConfirmSold, refreshChats } = useApp();
+  const { chats, sendMessage, markSold, buyerConfirmSold, buyerDeclineSold, refreshChats } = useApp();
   const [text, setText] = useState('');
   const [loadingRetry, setLoadingRetry] = useState(false);
   const listRef = useRef<FlatList<ListItem>>(null);
 
   const chat = chats.find(c => c.id === id);
 
-  // If chat not found on first render (race condition after navigation), retry once
   useEffect(() => {
     if (!chat && !loadingRetry) {
       setLoadingRetry(true);
@@ -124,31 +163,42 @@ export default function ChatScreen() {
   }
 
   function handleMarkSold() {
-    Alert.alert(
-      'סמן כנמכר',
-      `לסמן את "${chat!.itemName}" כנמכר? הקונה יצטרך לאשר לפני שהפריט יוסר.`,
-      [
-        { text: 'ביטול', style: 'cancel' },
-        { text: 'כן, שלח לאישור', onPress: () => markSold(chat!.id) },
-      ]
-    );
+    const doMark = () => markSold(chat!.id);
+    if (Platform.OS === 'web') {
+      // eslint-disable-next-line no-restricted-globals
+      if (confirm(`לסמן את "${chat!.itemName}" כנמכר? הקונה יצטרך לאשר.`)) doMark();
+      return;
+    }
+    Alert.alert('סמן כנמכר', `לסמן את "${chat!.itemName}" כנמכר?`, [
+      { text: 'ביטול', style: 'cancel' },
+      { text: 'כן, שלח לאישור', onPress: doMark },
+    ]);
   }
 
   function handleBuyerConfirm() {
-    Alert.alert(
-      'אישור רכישה',
-      `לאשר שרכשת את "${chat!.itemName}"?`,
-      [
-        { text: 'ביטול', style: 'cancel' },
-        {
-          text: 'כן, קניתי!',
-          onPress: () => {
-            buyerConfirmSold(chat!.id);
-            router.push(`/rating/${chat!.id}`);
-          },
-        },
-      ]
-    );
+    const doConfirm = () => { buyerConfirmSold(chat!.id); router.push(`/rating/${chat!.id}`); };
+    if (Platform.OS === 'web') {
+      // eslint-disable-next-line no-restricted-globals
+      if (confirm(`לאשר שרכשת את "${chat!.itemName}"?`)) doConfirm();
+      return;
+    }
+    Alert.alert('אישור רכישה', `לאשר שרכשת את "${chat!.itemName}"?`, [
+      { text: 'ביטול', style: 'cancel' },
+      { text: 'כן, קניתי!', onPress: doConfirm },
+    ]);
+  }
+
+  function handleBuyerDecline() {
+    const doDecline = () => buyerDeclineSold(chat!.id);
+    if (Platform.OS === 'web') {
+      // eslint-disable-next-line no-restricted-globals
+      if (confirm('בטוח שלא רכשת את הפריט?')) doDecline();
+      return;
+    }
+    Alert.alert('דחיית אישור', 'בטוח שלא רכשת את הפריט?', [
+      { text: 'ביטול', style: 'cancel' },
+      { text: 'כן, לא קניתי', style: 'destructive', onPress: doDecline },
+    ]);
   }
 
   return (
@@ -176,14 +226,6 @@ export default function ChatScreen() {
         </View>
       </View>
 
-      {!chat.isClosed && !chat.isSeller && chat.sellerMarkedSold && (
-        <View style={styles.confirmBanner}>
-          <Text style={styles.confirmBannerText}>📦 המוכר סימן שהפריט נמכר לך. אנא אשר/י.</Text>
-          <TouchableOpacity style={styles.confirmBtn} onPress={handleBuyerConfirm} activeOpacity={0.85}>
-            <Text style={styles.confirmBtnText}>אישור רכישה ✓</Text>
-          </TouchableOpacity>
-        </View>
-      )}
       {chat.isClosed && (
         <View style={styles.closedBanner}>
           <Text style={styles.closedBannerText}>✅ עסקה הושלמה</Text>
@@ -199,11 +241,21 @@ export default function ChatScreen() {
           data={buildListItems(chat.messages)}
           keyExtractor={item => item.type === 'date' ? item.key : item.msg.id}
           contentContainerStyle={styles.messages}
-          renderItem={({ item }) =>
-            item.type === 'date'
-              ? <DateSeparator label={item.label} />
-              : <Bubble msg={item.msg} />
-          }
+          renderItem={({ item }) => {
+            if (item.type === 'date') return <DateSeparator label={item.label} />;
+            if (item.msg.type === 'sold_notification') {
+              return (
+                <SoldBubble
+                  msg={item.msg}
+                  isSeller={!!chat.isSeller}
+                  isConfirmed={!!chat.isClosed}
+                  onConfirm={handleBuyerConfirm}
+                  onDecline={handleBuyerDecline}
+                />
+              );
+            }
+            return <Bubble msg={item.msg} />;
+          }}
           onLayout={() => listRef.current?.scrollToEnd({ animated: false })}
         />
 
@@ -253,15 +305,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF3C7', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4,
   },
   soldPendingText: { fontSize: 10, fontWeight: '700', color: '#D97706' },
-  confirmBanner: {
-    backgroundColor: '#EEF2FF', paddingHorizontal: 16, paddingVertical: 12,
-    gap: 10,
-  },
-  confirmBannerText: { fontSize: 13, fontWeight: '600', color: '#3730A3', textAlign: 'center' },
-  confirmBtn: {
-    backgroundColor: '#6366F1', borderRadius: 12, paddingVertical: 12, alignItems: 'center',
-  },
-  confirmBtnText: { fontSize: 15, fontWeight: '800', color: '#fff' },
   closedBanner: {
     backgroundColor: '#D1FAE5', paddingHorizontal: 20, paddingVertical: 10,
     flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
@@ -284,6 +327,40 @@ const styles = StyleSheet.create({
   bubbleTime: { fontSize: 10, textAlign: 'right' },
   sellerTime: { color: 'rgba(255,255,255,0.65)' },
   buyerTime: { color: '#9CA3AF' },
+  // Sold notification bubble
+  soldBubbleWrap: { alignItems: 'center', marginVertical: 6 },
+  soldBubble: {
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#6366F1',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    width: '90%',
+    gap: 10,
+    alignItems: 'center',
+    shadowColor: '#6366F1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  soldBubbleTitle: { fontSize: 17, fontWeight: '800', color: '#111827', textAlign: 'center' },
+  soldBubbleQuestion: { fontSize: 14, color: '#374151', textAlign: 'center' },
+  soldBubblePending: { fontSize: 13, color: '#D97706', fontWeight: '600', textAlign: 'center' },
+  soldBubbleDone: { fontSize: 14, color: '#059669', fontWeight: '700', textAlign: 'center' },
+  soldBubbleBtns: { flexDirection: 'row-reverse', gap: 10, width: '100%' },
+  soldBubbleYes: {
+    flex: 2, backgroundColor: '#6366F1', borderRadius: 12,
+    paddingVertical: 12, alignItems: 'center',
+  },
+  soldBubbleYesText: { fontSize: 14, fontWeight: '800', color: '#fff' },
+  soldBubbleNo: {
+    flex: 1, backgroundColor: '#F3F4F6', borderRadius: 12,
+    paddingVertical: 12, alignItems: 'center',
+  },
+  soldBubbleNoText: { fontSize: 14, fontWeight: '700', color: '#6B7280' },
+  soldBubbleTime: { fontSize: 10, color: '#9CA3AF' },
   inputBar: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 10,
     paddingHorizontal: 16, paddingVertical: 10,

@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import * as Location from 'expo-location';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -16,6 +18,7 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useApp } from '@/context/app-context';
 import { useAuth } from '@/context/auth-context';
+import { useMaps } from '@/context/maps-context';
 import type { Condition } from '@/data/mock';
 import { CATEGORY_INFO, CONDITIONS, ALL_SIZES } from '@/data/mock';
 
@@ -25,13 +28,11 @@ const TEL_AVIV = { lat: 32.0853, lng: 34.7818 };
 // Web-only Google Maps for manual pin
 let GoogleMap: React.ComponentType<any> | null = null;
 let GMarker: React.ComponentType<any> | null = null;
-let useJsApiLoader: ((...args: any[]) => any) | null = null;
 if (Platform.OS === 'web') {
   try {
     const gmaps = require('@react-google-maps/api');
     GoogleMap = gmaps.GoogleMap;
     GMarker = gmaps.Marker;
-    useJsApiLoader = gmaps.useJsApiLoader;
   } catch { /* not available */ }
 }
 
@@ -52,35 +53,80 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
 
 type LatLng = { lat: number; lng: number };
 
-function PinPicker({ value, onChange }: { value: LatLng | null; onChange: (p: LatLng) => void }) {
-  const loaderResult = useJsApiLoader
-    ? useJsApiLoader({ googleMapsApiKey: GOOGLE_MAPS_KEY, id: 'rewear-map' })
-    : { isLoaded: false };
-  if (!GoogleMap || !GMarker || !GOOGLE_MAPS_KEY || !loaderResult.isLoaded) {
-    return <Text style={{ color: '#9CA3AF', fontSize: 13, textAlign: 'right' }}>טוען מפה...</Text>;
-  }
+function PinPickerModal({ visible, defaultCenter, value, onChange, onClose }: {
+  visible: boolean;
+  defaultCenter: LatLng | null;
+  value: LatLng | null;
+  onChange: (p: LatLng | null) => void;
+  onClose: () => void;
+}) {
+  const [localPin, setLocalPin] = useState<LatLng | null>(value);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setLocalPin(value); }, [visible]);
+
+  const { isLoaded } = useMaps();
+
+  if (!GoogleMap || !GMarker || !GOOGLE_MAPS_KEY) return null;
+
   const GM = GoogleMap!;
   const Mk = GMarker!;
-  const center = value ?? TEL_AVIV;
+  const center = localPin ?? defaultCenter ?? TEL_AVIV;
+
   return (
-    <GM
-      mapContainerStyle={{ width: '100%', height: 200, borderRadius: 14, overflow: 'hidden' }}
-      center={center}
-      zoom={14}
-      onClick={(e: any) => onChange({ lat: e.latLng.lat(), lng: e.latLng.lng() })}
-      options={{ fullscreenControl: false, streetViewControl: false, mapTypeControl: false }}
-    >
-      {value && <Mk position={value} />}
-    </GM>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.pinOverlay}>
+        <View style={styles.pinCard}>
+          <View style={styles.pinModalHeader}>
+            <TouchableOpacity onPress={onClose} style={styles.pinCloseBtn}>
+              <Text style={styles.pinCloseBtnText}>✕</Text>
+            </TouchableOpacity>
+            <Text style={styles.pinModalTitle}>📍 קבע מיקום מדויק</Text>
+            <View style={{ width: 40 }} />
+          </View>
+          <Text style={styles.pinModalHint}>לחץ על המפה לנעוץ סיכה במיקום המכירה</Text>
+          {isLoaded ? (
+            <GM
+              mapContainerStyle={{ width: '100%', height: 380, borderRadius: 14, overflow: 'hidden' }}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              onLoad={(map: any) => { map.setCenter({ lat: center.lat, lng: center.lng }); map.setZoom(15); }}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              onClick={(e: any) => setLocalPin({ lat: e.latLng.lat(), lng: e.latLng.lng() })}
+              options={{ fullscreenControl: false, streetViewControl: false, mapTypeControl: false }}
+            >
+              {localPin && <Mk position={localPin} />}
+            </GM>
+          ) : (
+            <View style={{ height: 380, alignItems: 'center', justifyContent: 'center' }}>
+              <ActivityIndicator size="large" color="#6366F1" />
+            </View>
+          )}
+          <View style={styles.pinModalFooter}>
+            {localPin && (
+              <TouchableOpacity style={styles.pinClearBtn} onPress={() => setLocalPin(null)}>
+                <Text style={styles.pinClearText}>✕ נקה סיכה</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[styles.pinConfirmBtn, !localPin && styles.pinConfirmBtnGrey]}
+              onPress={() => { onChange(localPin); onClose(); }}
+            >
+              <Text style={styles.pinConfirmText}>
+                {localPin ? 'אשר מיקום ✓' : 'סגור'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
-function SizeDropdown({ value, onChange }: { value: string; onChange: (s: string) => void }) {
+function SizeDropdown({ value, onChange, error }: { value: string; onChange: (s: string) => void; error?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <View>
       <TouchableOpacity
-        style={styles.dropdownTrigger}
+        style={[styles.dropdownTrigger, error && styles.inputError]}
         onPress={() => setOpen(o => !o)}
         activeOpacity={0.8}
       >
@@ -110,10 +156,12 @@ function SizeDropdown({ value, onChange }: { value: string; onChange: (s: string
   );
 }
 
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+function Field({ label, required, error, children }: { label: string; required?: boolean; error?: boolean; children: React.ReactNode }) {
   return (
     <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}{required && <Text style={styles.req}> *</Text>}</Text>
+      <Text style={[styles.fieldLabel, error && styles.fieldLabelError]}>
+        {label}{required && <Text style={styles.req}> *</Text>}
+      </Text>
       {children}
     </View>
   );
@@ -128,13 +176,36 @@ export default function CompleteScreen() {
   const [selectedCondition, setSelectedCondition] = useState<Condition | null>(draft?.condition ?? null);
   const [price, setPrice] = useState(draft?.price ? String(draft.price) : '');
   const [size, setSize] = useState(draft?.size ?? '');
-  const userCity = user?.address ? user.address.split(',')[1]?.trim() ?? '' : '';
-  const [location, setLocation] = useState(userCity);
+  // Full address without zip (e.g. "הרצל 12, תל אביב")
+  const userAddress = (() => {
+    if (!user?.address) return '';
+    const parts = user.address.split(',').map(s => s.trim()).filter(Boolean);
+    return parts.filter(p => !/^\d+$/.test(p)).join(', ');
+  })();
+  const [location, setLocation] = useState(userAddress);
   const [priceMode, setPriceMode] = useState<'suggest' | 'custom'>(draft?.price ? 'suggest' : 'custom');
   const [manualPin, setManualPin] = useState<LatLng | null>(null);
+  const [defaultPinCenter, setDefaultPinCenter] = useState<LatLng | null>(null);
   const [showPinPicker, setShowPinPicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Set<string>>(new Set());
   const gpsRef = useRef<LatLng | null>(null);
+
+  function clearError(field: string) {
+    setErrors(prev => { const next = new Set(prev); next.delete(field); return next; });
+  }
+
+  // Geocode registered address to pre-pin map when PinPicker opens
+  useEffect(() => {
+    if (!showPinPicker || Platform.OS !== 'web') return;
+    if (manualPin) { setDefaultPinCenter(manualPin); return; }
+    if (user?.address) {
+      geocodeAddress(user.address).then(geo => {
+        if (geo) { setDefaultPinCenter(geo); setManualPin(geo); }
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPinPicker]);
 
   const suggestedPrice = draft?.price;
 
@@ -165,9 +236,15 @@ export default function CompleteScreen() {
 
   async function goToPreview() {
     if (!draft) return;
-    if (!name.trim()) { Alert.alert('שדה חסר', 'אנא הזן שם לפריט.'); return; }
-    if (!selectedCondition) { Alert.alert('שדה חסר', 'אנא בחר מצב פריט.'); return; }
-    if (!price || !size || !location) { Alert.alert('שדות חסרים', 'אנא מלא מחיר, מידה ומיקום.'); return; }
+    const newErrors = new Set<string>();
+    if (!name.trim()) newErrors.add('name');
+    if (!selectedCondition) newErrors.add('condition');
+    if (!price) newErrors.add('price');
+    if (!size) newErrors.add('size');
+    if (!location.trim()) newErrors.add('location');
+    if (newErrors.size > 0) { setErrors(newErrors); return; }
+    setErrors(new Set());
+
     if (!canAddMore) {
       Alert.alert(
         'הגעת למגבלה',
@@ -187,7 +264,7 @@ export default function CompleteScreen() {
 
     if (!finalLat) {
       const geo = await geocodeAddress(location.trim())
-        ?? (userCity ? await geocodeAddress(userCity) : null);
+        ?? (userAddress ? await geocodeAddress(userAddress) : null);
       if (geo) { finalLat = geo.lat; finalLng = geo.lng; }
     }
 
@@ -196,7 +273,7 @@ export default function CompleteScreen() {
       ...draft,
       name: name.trim(),
       brand: brand.trim() || undefined,
-      condition: selectedCondition,
+      condition: selectedCondition ?? undefined,
       price: parseInt(price),
       size: size.trim(),
       location: location.trim(),
@@ -243,15 +320,16 @@ export default function CompleteScreen() {
           </View>
 
           {/* Name — AI pre-filled or blank */}
-          <Field label="שם הפריט" required>
+          <Field label="שם הפריט" required error={errors.has('name')}>
             <TextInput
-              style={styles.input}
+              style={[styles.input, errors.has('name') && styles.inputError]}
               placeholder="לדוגמה: ג׳ינס ישר כחול"
               value={name}
-              onChangeText={setName}
+              onChangeText={v => { setName(v); clearError('name'); }}
               textAlign="right"
             />
-            {!draft.name && (
+            {errors.has('name') && <Text style={styles.errorMsg}>שדה חובה — אנא הזן שם לפריט</Text>}
+            {!draft.name && !errors.has('name') && (
               <Text style={styles.aiHint}>* AI לא זיהה — מלא ידנית</Text>
             )}
           </Field>
@@ -268,15 +346,15 @@ export default function CompleteScreen() {
           </Field>
 
           {/* Condition picker */}
-          <Field label="מצב הפריט" required>
-            <View style={styles.conditionList}>
+          <Field label="מצב הפריט" required error={errors.has('condition')}>
+            <View style={[styles.conditionList, errors.has('condition') && styles.listError]}>
               {CONDITIONS.map(c => {
                 const active = selectedCondition === c.value;
                 return (
                   <TouchableOpacity
                     key={c.value}
                     style={[styles.conditionRow, active && styles.conditionRowActive]}
-                    onPress={() => setSelectedCondition(c.value)}
+                    onPress={() => { setSelectedCondition(c.value); clearError('condition'); }}
                     activeOpacity={0.75}
                   >
                     <View style={[styles.conditionDot, active && { backgroundColor: c.color }]} />
@@ -290,13 +368,14 @@ export default function CompleteScreen() {
                 );
               })}
             </View>
-            {!draft.condition && (
+            {errors.has('condition') && <Text style={styles.errorMsg}>שדה חובה — בחר מצב פריט</Text>}
+            {!draft.condition && !errors.has('condition') && (
               <Text style={styles.aiHint}>* AI לא זיהה — בחר ידנית</Text>
             )}
           </Field>
 
           {/* Price */}
-          <Field label="מחיר (₪)" required>
+          <Field label="מחיר (₪)" required error={errors.has('price')}>
             {suggestedPrice && priceMode === 'suggest' ? (
               <View style={styles.priceSuggestCard}>
                 <View style={styles.priceSuggestHeader}>
@@ -324,13 +403,14 @@ export default function CompleteScreen() {
             ) : (
               <View>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, errors.has('price') && styles.inputError]}
                   placeholder="לדוגמה: 120"
                   keyboardType="numeric"
                   value={price}
-                  onChangeText={setPrice}
+                  onChangeText={v => { setPrice(v); clearError('price'); }}
                   textAlign="right"
                 />
+                {errors.has('price') && <Text style={styles.errorMsg}>שדה חובה — הזן מחיר</Text>}
                 {suggestedPrice && (
                   <TouchableOpacity onPress={() => { setPriceMode('suggest'); setPrice(String(suggestedPrice)); }}>
                     <Text style={styles.backToSuggest}>← חזור להצעת AI (₪{suggestedPrice})</Text>
@@ -341,38 +421,42 @@ export default function CompleteScreen() {
           </Field>
 
           {/* Size */}
-          <Field label="מידה" required>
-            <SizeDropdown value={size} onChange={setSize} />
+          <Field label="מידה" required error={errors.has('size')}>
+            <SizeDropdown
+              value={size}
+              onChange={v => { setSize(v); clearError('size'); }}
+              error={errors.has('size')}
+            />
+            {errors.has('size') && <Text style={styles.errorMsg}>שדה חובה — בחר מידה</Text>}
           </Field>
 
           {/* Location */}
-          <Field label="מיקום כללי" required>
+          <Field label="מיקום כללי" required error={errors.has('location')}>
             <TextInput
-              style={styles.input}
+              style={[styles.input, errors.has('location') && styles.inputError]}
               placeholder="לדוגמה: תל אביב, הרצליה..."
               value={location}
-              onChangeText={setLocation}
+              onChangeText={v => { setLocation(v); clearError('location'); }}
               textAlign="right"
             />
+            {errors.has('location') && <Text style={styles.errorMsg}>שדה חובה — הזן מיקום</Text>}
             <TouchableOpacity
-              style={styles.pinToggle}
-              onPress={() => setShowPinPicker(p => !p)}
+              style={[styles.pinToggle, manualPin && styles.pinToggleActive]}
+              onPress={() => setShowPinPicker(true)}
               activeOpacity={0.7}
             >
-              <Text style={styles.pinToggleText}>
-                {manualPin ? '📍 מיקום מדויק נקבע ✓' : showPinPicker ? '▲ סגור מפה' : '📍 דייק מיקום על המפה'}
+              <Text style={[styles.pinToggleText, manualPin && styles.pinToggleTextActive]}>
+                {manualPin ? '📍 מיקום מדויק נקבע ✓' : '📍 דייק מיקום על המפה'}
               </Text>
             </TouchableOpacity>
-            {showPinPicker && Platform.OS === 'web' && (
-              <View style={styles.pinPickerWrap}>
-                <Text style={styles.pinPickerHint}>לחץ על המפה כדי לקבוע את מיקום המכירה המדויק</Text>
-                <PinPicker value={manualPin} onChange={setManualPin} />
-                {manualPin && (
-                  <TouchableOpacity onPress={() => setManualPin(null)} style={styles.pinClear}>
-                    <Text style={styles.pinClearText}>✕ נקה סיכה</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+            {Platform.OS === 'web' && (
+              <PinPickerModal
+                visible={showPinPicker}
+                defaultCenter={defaultPinCenter}
+                value={manualPin}
+                onChange={setManualPin}
+                onClose={() => setShowPinPicker(false)}
+              />
             )}
           </Field>
 
@@ -430,6 +514,10 @@ const styles = StyleSheet.create({
     fontSize: 16, color: '#111827', borderWidth: 1.5, borderColor: '#E5E7EB',
   },
   aiHint: { fontSize: 11, color: '#F59E0B', textAlign: 'right', marginTop: 2 },
+  inputError: { borderColor: '#EF4444', borderWidth: 2 },
+  listError: { borderColor: '#EF4444', borderWidth: 2 },
+  errorMsg: { fontSize: 12, color: '#EF4444', fontWeight: '600', textAlign: 'right', marginTop: 4 },
+  fieldLabelError: { color: '#EF4444' },
   conditionList: {
     backgroundColor: '#fff', borderRadius: 16, borderWidth: 1.5, borderColor: '#E5E7EB',
     overflow: 'hidden',
@@ -504,10 +592,47 @@ const styles = StyleSheet.create({
   priceSuggestOverrideText: { fontSize: 15, fontWeight: '600', color: '#374151' },
   backToSuggest: { fontSize: 12, color: '#6366F1', fontWeight: '600', textAlign: 'right', marginTop: 6 },
 
-  pinToggle: { alignSelf: 'flex-end', marginTop: 8 },
-  pinToggleText: { fontSize: 13, color: '#6366F1', fontWeight: '600' },
-  pinPickerWrap: { marginTop: 10, gap: 8 },
-  pinPickerHint: { fontSize: 12, color: '#6B7280', textAlign: 'right' },
-  pinClear: { alignSelf: 'flex-end' },
-  pinClearText: { fontSize: 12, color: '#EF4444', fontWeight: '600' },
+  pinToggle: {
+    alignSelf: 'flex-end', marginTop: 8,
+    backgroundColor: '#EEF2FF', borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 8,
+  },
+  pinToggleActive: { backgroundColor: '#D1FAE5' },
+  pinToggleText: { fontSize: 13, color: '#6366F1', fontWeight: '700' },
+  pinToggleTextActive: { color: '#059669' },
+
+  // Pin picker modal
+  pinOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center', justifyContent: 'center',
+    padding: 20,
+  },
+  pinCard: {
+    backgroundColor: '#fff', borderRadius: 24, width: '100%', maxWidth: 560,
+    padding: 20, gap: 14,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.25, shadowRadius: 32, elevation: 20,
+  },
+  pinModalHeader: {
+    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
+  },
+  pinCloseBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center',
+  },
+  pinCloseBtnText: { fontSize: 16, color: '#374151', fontWeight: '700' },
+  pinModalTitle: { fontSize: 17, fontWeight: '800', color: '#111827' },
+  pinModalHint: { fontSize: 13, color: '#6B7280', textAlign: 'right' },
+  pinModalFooter: { flexDirection: 'row-reverse', gap: 10, marginTop: 4 },
+  pinClearBtn: {
+    paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12,
+    backgroundColor: '#FEE2E2',
+  },
+  pinClearText: { fontSize: 14, color: '#EF4444', fontWeight: '700' },
+  pinConfirmBtn: {
+    flex: 1, backgroundColor: '#6366F1', borderRadius: 12,
+    paddingVertical: 14, alignItems: 'center',
+  },
+  pinConfirmBtnGrey: { backgroundColor: '#9CA3AF' },
+  pinConfirmText: { fontSize: 15, fontWeight: '800', color: '#fff' },
 });

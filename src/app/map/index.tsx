@@ -13,6 +13,7 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
 import { useApp } from '@/context/app-context';
+import { useMaps } from '@/context/maps-context';
 import { TabBar } from '@/components/tab-bar';
 import { CATEGORIES, CATEGORY_INFO, itemCoordinates } from '@/data/mock';
 import type { Category, ClothingItem } from '@/data/mock';
@@ -20,14 +21,12 @@ import type { Category, ClothingItem } from '@/data/mock';
 // Web-only: interactive Google Maps
 let GoogleMap: React.ComponentType<any> | null = null;
 let GMarker: React.ComponentType<any> | null = null;
-let useJsApiLoader: ((...args: any[]) => any) | null = null;
 if (Platform.OS === 'web') {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const gmaps = require('@react-google-maps/api');
     GoogleMap = gmaps.GoogleMap;
     GMarker = gmaps.Marker;
-    useJsApiLoader = gmaps.useJsApiLoader;
   } catch { /* not available */ }
 }
 
@@ -131,10 +130,7 @@ function WebMapView({ items, center }: { items: ClothingItem[]; center: UserLoca
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = useRef<any>(null);
 
-  const loaderResult = useJsApiLoader
-    ? useJsApiLoader({ googleMapsApiKey: GOOGLE_MAPS_KEY, id: 'rewear-map' })
-    : { isLoaded: false };
-  const isLoaded = loaderResult.isLoaded;
+  const { isLoaded } = useMaps();
 
   if (!GoogleMap || !GOOGLE_MAPS_KEY) {
     return (
