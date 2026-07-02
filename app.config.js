@@ -8,15 +8,19 @@ module.exports = {
     scheme: 'rewear',
     userInterfaceStyle: 'automatic',
     ios: {
+      bundleIdentifier: 'com.rewear.app',
+      supportsTablet: false,
       icon: './assets/expo.icon',
       infoPlist: {
         NSLocationWhenInUseUsageDescription: 'ReWear משתמשת במיקומך כדי להציג פריטים קרובים אליך.',
+        ITSAppUsesNonExemptEncryption: false,
       },
       config: {
         googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? '',
       },
     },
     android: {
+      package: 'com.rewear.app',
       adaptiveIcon: {
         backgroundColor: '#E6F4FE',
         foregroundImage: './assets/images/android-icon-foreground.png',
@@ -54,6 +58,11 @@ module.exports = {
         },
       ],
     ],
+    extra: {
+      eas: {
+        projectId: '963a15e9-04be-477a-80a2-4e8be7a86f10',
+      },
+    },
     experiments: {
       typedRoutes: true,
       reactCompiler: true,
