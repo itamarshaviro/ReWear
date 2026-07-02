@@ -1,6 +1,15 @@
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { Platform } from 'react-native';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
+
+const REMEMBER_KEY = 'rewear_no_remember';
+const ALIVE_KEY    = 'rewear_session_alive';
+
+function webStorage() {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
+  return { local: window.localStorage, session: window.sessionStorage };
+}
 
 export type BuyerPreferences = {
   brands: string[];
@@ -41,7 +50,7 @@ type AuthContextType = {
   user: AuthUser | null;
   isLoading: boolean;
   pendingEmail: string | null;
-  signIn: (email: string, password: string) => Promise<string | null>;
+  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<string | null>;
   signUp: (payload: SignUpPayload) => Promise<'ok' | 'needs-verify' | string>;
   verifyOtp: (code: string) => Promise<string | null>;
   resendOtp: () => Promise<string | null>;
@@ -60,6 +69,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ── Session detection ────────────────────────────────────────────────────
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
+
+    // "Remember me" check: if user opted out and browser was closed, sign out
+    const storage = webStorage();
+    if (storage) {
+      try {
+        const alive     = storage.session.getItem(ALIVE_KEY);
+        const noRemember = storage.local.getItem(REMEMBER_KEY);
+        if (!alive && noRemember) {
+          storage.local.removeItem(REMEMBER_KEY);
+          supabase.auth.signOut();
+          setIsLoading(false);
+          return;
+        }
+      } catch { /* storage blocked */ }
+    }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
@@ -128,7 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   // ── Sign in ──────────────────────────────────────────────────────────────
-  async function signIn(email: string, password: string): Promise<string | null> {
+  async function signIn(email: string, password: string, rememberMe = true): Promise<string | null> {
     if (!isSupabaseConfigured()) {
       setUser({
         id: 'demo', dbId: 'demo',
@@ -145,8 +169,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error.message.includes('Email not confirmed')) return 'יש לאמת את האימייל תחילה';
       return error.message;
     }
-    // Set loading so index.tsx shows spinner instead of redirecting back to /auth
-    // before onAuthStateChange → handleAuthUser finishes setting the user
+
+    // Track "remember me" choice via sessionStorage (clears on browser close)
+    try {
+      const storage = webStorage();
+      if (storage) {
+        storage.session.setItem(ALIVE_KEY, '1');
+        if (!rememberMe) {
+          storage.local.setItem(REMEMBER_KEY, '1');
+        } else {
+          storage.local.removeItem(REMEMBER_KEY);
+        }
+      }
+    } catch { /* storage blocked */ }
+
     setIsLoading(true);
     return null;
   }

@@ -26,11 +26,12 @@ export default function LoginScreen() {
     }
   }, [user]);
 
-  const [email,    setEmail]    = useState('');
-  const [password, setPassword] = useState('');
-  const [showPass, setShowPass] = useState(false);
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState('');
+  const [email,      setEmail]      = useState('');
+  const [password,   setPassword]   = useState('');
+  const [showPass,   setShowPass]   = useState(false);
+  const [loading,    setLoading]    = useState(false);
+  const [error,      setError]      = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
 
   async function handleLogin() {
     setError('');
@@ -38,7 +39,7 @@ export default function LoginScreen() {
     if (!password)     { setError('אנא הזן סיסמא.'); return; }
 
     setLoading(true);
-    const err = await signIn(email.trim().toLowerCase(), password);
+    const err = await signIn(email.trim().toLowerCase(), password, rememberMe);
     setLoading(false);
     if (err) {
       setError(err);
@@ -118,6 +119,17 @@ export default function LoginScreen() {
               </View>
             </View>
           </View>
+
+          <TouchableOpacity
+            style={styles.rememberRow}
+            onPress={() => setRememberMe(v => !v)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.rememberLabel}>זכור אותי</Text>
+            <View style={[styles.checkbox, rememberMe && styles.checkboxOn]}>
+              {rememberMe && <Text style={styles.checkmark}>✓</Text>}
+            </View>
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.loginBtn, loading && styles.btnDisabled]}
@@ -201,4 +213,16 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: '#6366F1', backgroundColor: '#EEF2FF',
   },
   registerBtnText: { fontSize: 17, fontWeight: '800', color: '#6366F1' },
+  rememberRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10,
+  },
+  rememberLabel: { fontSize: 14, color: '#6B7280', fontWeight: '600' },
+  checkbox: {
+    width: 22, height: 22, borderRadius: 6,
+    borderWidth: 2, borderColor: '#D1D5DB',
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  checkboxOn: { backgroundColor: '#6366F1', borderColor: '#6366F1' },
+  checkmark: { fontSize: 13, color: '#fff', fontWeight: '900' },
 });
