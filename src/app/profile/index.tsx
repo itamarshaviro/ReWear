@@ -112,13 +112,8 @@ export default function ProfileScreen() {
       ? window.confirm('האם אתה בטוח שברצונך להתנתק?')
       : true;
     if (confirmed) {
-      logout();
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        // Full browser navigation — guarantees login screen, bypasses Expo Router stack memory
-        window.location.assign('/auth');
-      } else {
-        router.replace('/auth');
-      }
+      logout(); // on web: signs out + navigates; on native: sets user null
+      if (Platform.OS !== 'web') router.replace('/auth');
     }
   }
 

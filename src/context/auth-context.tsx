@@ -297,6 +297,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Other ────────────────────────────────────────────────────────────────
   function logout() {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      // On web: sign out then hard-navigate — avoids React re-render flicker
+      if (isSupabaseConfigured()) {
+        supabase.auth.signOut().then(() => window.location.assign('/auth'));
+      } else {
+        window.location.assign('/auth');
+      }
+      return;
+    }
     setUser(null);
     if (isSupabaseConfigured()) supabase.auth.signOut();
   }
