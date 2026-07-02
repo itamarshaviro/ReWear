@@ -113,8 +113,7 @@ export default function ProfileScreen() {
       : true;
     if (confirmed) {
       logout();
-      // Navigate to login screen specifically (not register)
-      router.replace('/auth/');
+      router.replace('/auth');
     }
   }
 
