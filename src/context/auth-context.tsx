@@ -71,27 +71,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!isSupabaseConfigured()) return;
 
     // "Remember me" check: if user opted out and browser was closed, sign out
+    let skipSession = false;
     const storage = webStorage();
     if (storage) {
       try {
-        const alive     = storage.session.getItem(ALIVE_KEY);
+        const alive      = storage.session.getItem(ALIVE_KEY);
         const noRemember = storage.local.getItem(REMEMBER_KEY);
         if (!alive && noRemember) {
           storage.local.removeItem(REMEMBER_KEY);
-          supabase.auth.signOut();
+          supabase.auth.signOut(); // fires SIGNED_OUT → onAuthStateChange handles the rest
+          skipSession = true;
           setIsLoading(false);
-          return;
         }
       } catch { /* storage blocked */ }
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        handleAuthUser(session.user);
-      } else {
-        setIsLoading(false);
-      }
-    });
+    if (!skipSession) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          handleAuthUser(session.user);
+        } else {
+          setIsLoading(false);
+        }
+      });
+    }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {

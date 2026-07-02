@@ -113,7 +113,12 @@ export default function ProfileScreen() {
       : true;
     if (confirmed) {
       logout();
-      router.replace('/auth');
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        // Full browser navigation — guarantees login screen, bypasses Expo Router stack memory
+        window.location.assign('/auth');
+      } else {
+        router.replace('/auth');
+      }
     }
   }
 
