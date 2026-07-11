@@ -16,6 +16,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useApp } from '@/context/app-context';
 import { ActivityIndicator } from 'react-native';
 import type { ChatMessage } from '@/data/mock';
+import { ReportModal } from '@/components/report-modal';
 
 type ListItem =
   | { type: 'message'; msg: ChatMessage }
@@ -125,6 +126,7 @@ export default function ChatScreen() {
   const { chats, sendMessage, markSold, buyerConfirmSold, buyerDeclineSold, refreshChats } = useApp();
   const [text, setText] = useState('');
   const [loadingRetry, setLoadingRetry] = useState(false);
+  const [reportVisible, setReportVisible] = useState(false);
   const listRef = useRef<FlatList<ListItem>>(null);
 
   const chat = chats.find(c => c.id === id);
@@ -211,6 +213,9 @@ export default function ChatScreen() {
           <Text style={styles.headerName}>{chat.otherPartyName}</Text>
           <Text style={styles.headerItem} numberOfLines={1}>{chat.itemName}</Text>
         </View>
+        <TouchableOpacity style={styles.reportBtn} onPress={() => setReportVisible(true)}>
+          <Text style={styles.reportBtnText}>⚑</Text>
+        </TouchableOpacity>
         <View style={styles.headerRight}>
           <Image source={{ uri: chat.itemImage }} style={styles.headerThumb} contentFit="cover" />
           {!chat.isClosed && chat.isSeller && !chat.sellerMarkedSold && (
@@ -277,6 +282,11 @@ export default function ChatScreen() {
           </View>
         )}
       </KeyboardAvoidingView>
+      <ReportModal
+        visible={reportVisible}
+        onClose={() => setReportVisible(false)}
+        reportedUserId={chat.otherPartyDbId}
+      />
     </SafeAreaView>
   );
 }
@@ -291,6 +301,8 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', transform: [{ scaleX: -1 }] },
   backText: { fontSize: 22, color: '#6366F1', fontWeight: '700' },
+  reportBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  reportBtnText: { fontSize: 18, color: '#9CA3AF' },
   headerInfo: { flex: 1, alignItems: 'center', gap: 2 },
   headerName: { fontSize: 15, fontWeight: '700', color: '#111827' },
   headerItem: { fontSize: 12, color: '#6366F1', fontWeight: '600' },
