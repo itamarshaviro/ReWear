@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { Platform } from 'react-native';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { registerForPushNotifications } from '@/lib/notifications';
 import type { User } from '@supabase/supabase-js';
 
 const REMEMBER_KEY = 'rewear_no_remember';
@@ -131,7 +132,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           address: data.address ?? '',
           isVerified: data.is_verified ?? true,
           isPremium: data.is_premium ?? false,
+          preferences: data.preferences ?? undefined,
         });
+        registerForPushNotifications(data.id);
       } else {
         // Profile row missing — still allow login with auth data
         const meta = authUser.user_metadata ?? {};
@@ -312,6 +315,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   function updatePreferences(prefs: BuyerPreferences) {
     setUser(prev => prev ? { ...prev, preferences: prefs } : prev);
+    if (isSupabaseConfigured() && user?.dbId) {
+      supabase.from('users').update({ preferences: prefs }).eq('id', user.dbId);
+    }
   }
 
   return (

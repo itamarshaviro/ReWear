@@ -103,6 +103,7 @@ export type Chat = {
   itemImage: string;
   itemPrice?: number;
   otherPartyName: string;
+  otherPartyDbId?: string;
   messages: ChatMessage[];
   isClosed?: boolean;
   isSeller?: boolean;

@@ -3,6 +3,7 @@ import type { ClothingItem, InterestRequest, Chat, ChatMessage, AiDraft, Rating 
 import type { Category, Condition } from '@/data/mock';
 import { MOCK_ITEMS } from '@/data/mock';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { sendPushNotification } from '@/lib/notifications';
 import { useAuth } from './auth-context';
 
 const FREE_LIMIT = 5;
@@ -318,6 +319,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const item = m.items;
       const isSeller = m.seller_id === dbId;
       const otherPartyName = isSeller ? m.buyer_name : (item?.seller_name ?? 'מוכר');
+      const otherPartyDbId = isSeller ? m.buyer_id : m.seller_id;
       return {
         id: m.id,
         itemId: m.item_id,
@@ -325,6 +327,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         itemImage: item?.image_url ?? '',
         itemPrice: item?.price ?? undefined,
         otherPartyName,
+        otherPartyDbId,
         messages: msgsByMatch[m.id] ?? [],
         isClosed: m.status === 'completed',
         isSeller,
@@ -500,7 +503,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         text,
         is_read: false,
       });
-      // Realtime subscription updates the UI automatically
+      // Send push notification to the other party
+      const chat = chats.find(c => c.id === chatId);
+      if (chat?.otherPartyDbId) {
+        const senderName = user?.firstName ?? 'מישהו';
+        sendPushNotification(
+          chat.otherPartyDbId,
+          `הודעה חדשה מ${senderName}`,
+          text.length > 80 ? text.slice(0, 80) + '...' : text,
+          { screen: 'chat', chatId },
+        );
+      }
       return;
     }
 
