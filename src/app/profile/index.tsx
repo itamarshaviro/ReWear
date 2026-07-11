@@ -130,6 +130,12 @@ export default function ProfileScreen() {
 
   const selBrands = user?.preferences?.brands ?? [];
 
+  // useMemo must be before any early return
+  const matchedItems = useMemo(() => {
+    if (!selBrands.length) return [];
+    return allListings.filter(item => selBrands.includes(item.brand)).slice(0, 6);
+  }, [allListings, selBrands]);
+
   useEffect(() => {
     if (!user && Platform.OS !== 'web') router.replace('/auth/register');
   }, [user]);
@@ -155,12 +161,6 @@ export default function ProfileScreen() {
 
   // Response time (demo — faster as more sales)
   const responseTime = soldCount >= 5 ? '~1 שעה' : soldCount >= 2 ? '~3 שעות' : '~12 שעות';
-
-  // Smart matches — items in the feed matching buyer's brand preferences
-  const matchedItems = useMemo(() => {
-    if (!selBrands.length) return [];
-    return allListings.filter(item => selBrands.includes(item.brand)).slice(0, 6);
-  }, [allListings, selBrands]);
 
   function handleLogout() {
     const confirmed = Platform.OS === 'web'
