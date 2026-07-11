@@ -33,6 +33,7 @@ export type AuthUser = {
   isVerified: boolean;
   isPremium: boolean;
   preferences?: BuyerPreferences;
+  profilePhoto?: string;
 };
 
 export type SignUpPayload = {
@@ -57,6 +58,7 @@ type AuthContextType = {
   resendOtp: () => Promise<string | null>;
   logout: () => void;
   updatePreferences: (prefs: BuyerPreferences) => void;
+  updateProfilePhoto: (url: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -121,6 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (data) {
+        const row = data as typeof data & { preferences?: BuyerPreferences; profile_photo?: string };
         setUser({
           id: authUser.id,
           dbId: data.id,
@@ -132,7 +135,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           address: data.address ?? '',
           isVerified: data.is_verified ?? true,
           isPremium: data.is_premium ?? false,
-          preferences: data.preferences ?? undefined,
+          preferences: row.preferences ?? undefined,
+          profilePhoto: row.profile_photo ?? undefined,
         });
         registerForPushNotifications(data.id);
       } else {
@@ -316,12 +320,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function updatePreferences(prefs: BuyerPreferences) {
     setUser(prev => prev ? { ...prev, preferences: prefs } : prev);
     if (isSupabaseConfigured() && user?.dbId) {
-      supabase.from('users').update({ preferences: prefs }).eq('id', user.dbId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('users') as any).update({ preferences: prefs }).eq('id', user.dbId);
+    }
+  }
+
+  async function updateProfilePhoto(url: string) {
+    setUser(prev => prev ? { ...prev, profilePhoto: url } : prev);
+    if (isSupabaseConfigured() && user?.dbId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('users') as any).update({ profile_photo: url }).eq('id', user.dbId);
     }
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, pendingEmail, signIn, signUp, verifyOtp, resendOtp, logout, updatePreferences }}>
+    <AuthContext.Provider value={{ user, isLoading, pendingEmail, signIn, signUp, verifyOtp, resendOtp, logout, updatePreferences, updateProfilePhoto }}>
       {children}
     </AuthContext.Provider>
   );

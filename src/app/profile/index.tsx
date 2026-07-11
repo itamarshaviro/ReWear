@@ -1,13 +1,28 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
-  Platform, StyleSheet, Text, TouchableOpacity, View, ScrollView,
+  Platform, StyleSheet, Text, TouchableOpacity, View, ScrollView, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/context/auth-context';
 import { useApp } from '@/context/app-context';
 import { Stars } from '@/components/stars';
+
+const CLOUDINARY_CLOUD = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+
+async function uploadToCloudinary(uri: string): Promise<string> {
+  const form = new FormData();
+  form.append('file', { uri, type: 'image/jpeg', name: 'profile.jpg' } as never);
+  form.append('upload_preset', CLOUDINARY_PRESET ?? '');
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
+    method: 'POST', body: form,
+  });
+  const json = await res.json();
+  return json.secure_url as string;
+}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -22,12 +37,21 @@ type ProfileTab = 'seller' | 'buyer';
 
 // ── Small components ──────────────────────────────────────────────────────────
 
-function Avatar({ name }: { name: string }) {
+function Avatar({ name, photoUrl, onPress }: { name: string; photoUrl?: string; onPress: () => void }) {
   const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2);
   return (
-    <View style={styles.avatar}>
-      <Text style={styles.avatarText}>{initials}</Text>
-    </View>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.avatarWrapper}>
+      {photoUrl ? (
+        <Image source={{ uri: photoUrl }} style={styles.avatarPhoto} contentFit="cover" />
+      ) : (
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{initials}</Text>
+        </View>
+      )}
+      <View style={styles.avatarEditBadge}>
+        <Text style={styles.avatarEditIcon}>✎</Text>
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -68,10 +92,35 @@ function TrustBar({ score }: { score: number }) {
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
-  const { user, logout, updatePreferences } = useAuth();
+  const { user, logout, updatePreferences, updateProfilePhoto } = useAuth();
   const { myListings, ratings, getItemStatus, allListings } = useApp();
 
   const [tab, setTab] = useState<ProfileTab>('seller');
+  const [uploading, setUploading] = useState(false);
+
+  async function handlePickPhoto() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('נדרשת הרשאה', 'יש לאפשר גישה לגלריה בהגדרות');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    setUploading(true);
+    try {
+      const url = await uploadToCloudinary(result.assets[0].uri);
+      await updateProfilePhoto(url);
+    } catch {
+      Alert.alert('שגיאה', 'לא הצלחנו להעלות את התמונה');
+    } finally {
+      setUploading(false);
+    }
+  }
 
   const selBrands = user?.preferences?.brands ?? [];
 
@@ -133,7 +182,8 @@ export default function ProfileScreen() {
 
         {/* Hero */}
         <View style={styles.heroSection}>
-          <Avatar name={fullName} />
+          <Avatar name={fullName} photoUrl={user.profilePhoto} onPress={handlePickPhoto} />
+          {uploading && <Text style={styles.uploadingText}>מעלה תמונה...</Text>}
           <Text style={styles.userName}>{fullName}</Text>
           {user.isVerified && (
             <View style={styles.verifiedBadge}><Text style={styles.verifiedText}>✓ מאומת</Text></View>
@@ -292,12 +342,25 @@ const styles = StyleSheet.create({
 
   // Hero
   heroSection: { alignItems: 'center', gap: 8, paddingVertical: 8 },
+  avatarWrapper: { position: 'relative', width: 88, height: 88 },
   avatar: {
-    width: 80, height: 80, borderRadius: 40, backgroundColor: '#6366F1',
+    width: 88, height: 88, borderRadius: 44, backgroundColor: '#6366F1',
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#6366F1', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8,
   },
+  avatarPhoto: {
+    width: 88, height: 88, borderRadius: 44,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 6,
+  },
+  avatarEditBadge: {
+    position: 'absolute', bottom: 0, left: 0,
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: '#6366F1', borderWidth: 2, borderColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarEditIcon: { fontSize: 12, color: '#fff' },
   avatarText: { fontSize: 28, fontWeight: '800', color: '#fff' },
+  uploadingText: { fontSize: 12, color: '#9CA3AF' },
   userName: { fontSize: 20, fontWeight: '800', color: '#111827' },
   verifiedBadge: { backgroundColor: '#D1FAE5', borderRadius: 100, paddingHorizontal: 12, paddingVertical: 4 },
   verifiedText: { fontSize: 12, fontWeight: '700', color: '#059669' },

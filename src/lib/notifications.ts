@@ -28,7 +28,8 @@ export async function registerForPushNotifications(dbId: string): Promise<void> 
   try {
     const token = (await Notifications.getExpoPushTokenAsync()).data;
     if (isSupabaseConfigured() && dbId) {
-      await supabase.from('users').update({ push_token: token }).eq('id', dbId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('users') as any).update({ push_token: token }).eq('id', dbId);
     }
   } catch {
     // simulator or no EAS project — skip silently
@@ -43,13 +44,13 @@ export async function sendPushNotification(
 ): Promise<void> {
   if (!isSupabaseConfigured()) return;
 
-  const { data: row } = await supabase
-    .from('users')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: row } = await (supabase.from('users') as any)
     .select('push_token')
     .eq('id', recipientDbId)
     .single();
 
-  const token = row?.push_token;
+  const token = (row as { push_token?: string } | null)?.push_token;
   if (!token) return;
 
   await fetch('https://exp.host/--/api/v2/push/send', {
