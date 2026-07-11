@@ -46,6 +46,7 @@ export type SignUpPayload = {
   street?: string;
   city?: string;
   zip?: string;
+  profilePhoto?: string;
 };
 
 type AuthContextType = {
@@ -237,8 +238,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const authUser = data.user;
       if (!authUser) return 'שגיאה ביצירת חשבון';
 
-      const { error: upsertError } = await supabase
-        .from('users')
+      const { error: upsertError } = await (supabase.from('users') as any)
         .upsert({
           auth_id: authUser.id,
           first_name: payload.firstName,
@@ -248,6 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           address: address || null,
           is_verified: true,
           is_premium: false,
+          ...(payload.profilePhoto ? { profile_photo: payload.profilePhoto } : {}),
         });
 
       if (upsertError) {

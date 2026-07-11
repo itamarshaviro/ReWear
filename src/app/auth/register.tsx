@@ -10,9 +10,28 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/auth-context';
 import { useMaps } from '@/context/maps-context';
+
+const CLOUDINARY_CLOUD  = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+
+async function uploadPhoto(uri: string): Promise<string> {
+  const form = new FormData();
+  if (Platform.OS === 'web') {
+    const blob = await fetch(uri).then(r => r.blob());
+    form.append('file', blob, 'profile.jpg');
+  } else {
+    form.append('file', { uri, type: 'image/jpeg', name: 'profile.jpg' } as unknown as Blob);
+  }
+  form.append('upload_preset', CLOUDINARY_PRESET ?? '');
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, { method: 'POST', body: form });
+  if (!res.ok) throw new Error('upload failed');
+  return (await res.json()).secure_url as string;
+}
 
 const PET_OPTIONS = ['🐶 כלב', '🐱 חתול', '🐹 שרקן', '🐰 ארנב', '🐦 ציפור', '🐠 דג', '🦎 זוחל', 'אחר'];
 const GOOGLE_MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
@@ -224,6 +243,16 @@ export default function RegisterScreen() {
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState('');
   const [favPet,      setFavPet]      = useState<string | null>(null);
+  const [photoUri,    setPhotoUri]    = useState<string | null>(null);
+
+  async function handlePickPhoto() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) setPhotoUri(result.assets[0].uri);
+  }
 
   const { isLoaded: mapsLoaded } = useMaps();
   const useAutocomplete = Platform.OS === 'web' && !!GOOGLE_MAPS_KEY && mapsLoaded;
@@ -241,6 +270,10 @@ export default function RegisterScreen() {
     if (!buildingNum.trim())  { setError('אנא הזן מספר בניין.'); return; }
 
     setLoading(true);
+    let profilePhoto: string | undefined;
+    if (photoUri) {
+      try { profilePhoto = await uploadPhoto(photoUri); } catch { /* skip if upload fails */ }
+    }
     const result = await signUp({
       firstName: firstName.trim(),
       lastName:  lastName.trim(),
@@ -251,6 +284,7 @@ export default function RegisterScreen() {
       street: `${street.trim()} ${buildingNum.trim()}`.trim() || undefined,
       city:   city.trim() || undefined,
       zip:    zip.trim()  || undefined,
+      profilePhoto,
     });
     setLoading(false);
 
@@ -275,6 +309,26 @@ export default function RegisterScreen() {
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
+          {/* Profile photo */}
+          <View style={styles.photoSection}>
+            <TouchableOpacity onPress={handlePickPhoto} activeOpacity={0.8} style={styles.photoPicker}>
+              {photoUri ? (
+                <Image source={{ uri: photoUri }} style={styles.photoPreview} contentFit="cover" />
+              ) : (
+                <View style={styles.photoPlaceholder}>
+                  <Text style={styles.photoIcon}>📷</Text>
+                  <Text style={styles.photoLabel}>הוסף תמונת פרופיל</Text>
+                  <Text style={styles.photoSub}>אופציונלי</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            {photoUri && (
+              <TouchableOpacity onPress={handlePickPhoto} style={styles.changePhotoBtn}>
+                <Text style={styles.changePhotoText}>החלף תמונה</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           {/* Personal info */}
           <View style={styles.section}>
@@ -403,6 +457,24 @@ const styles = StyleSheet.create({
   backText: { fontSize: 22, color: '#6366F1', fontWeight: '700' },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#111827' },
   content: { padding: 20, gap: 20, paddingBottom: 40 },
+
+  photoSection: { alignItems: 'center', gap: 10 },
+  photoPicker: {
+    width: 100, height: 100, borderRadius: 50,
+    overflow: 'hidden',
+    borderWidth: 2, borderColor: '#E5E7EB', borderStyle: 'dashed',
+  },
+  photoPreview: { width: 100, height: 100 },
+  photoPlaceholder: {
+    width: 100, height: 100, backgroundColor: '#F9FAFB',
+    alignItems: 'center', justifyContent: 'center', gap: 2,
+  },
+  photoIcon: { fontSize: 28 },
+  photoLabel: { fontSize: 10, fontWeight: '700', color: '#6366F1', textAlign: 'center' },
+  photoSub: { fontSize: 9, color: '#9CA3AF' },
+  changePhotoBtn: { paddingVertical: 4 },
+  changePhotoText: { fontSize: 13, color: '#6366F1', fontWeight: '600' },
+
   section: {
     backgroundColor: '#fff', borderRadius: 20,
     padding: 18, gap: 16,

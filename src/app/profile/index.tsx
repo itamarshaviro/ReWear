@@ -15,11 +15,17 @@ const CLOUDINARY_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
 async function uploadToCloudinary(uri: string): Promise<string> {
   const form = new FormData();
-  form.append('file', { uri, type: 'image/jpeg', name: 'profile.jpg' } as never);
+  if (Platform.OS === 'web') {
+    const blob = await fetch(uri).then(r => r.blob());
+    form.append('file', blob, 'profile.jpg');
+  } else {
+    form.append('file', { uri, type: 'image/jpeg', name: 'profile.jpg' } as unknown as Blob);
+  }
   form.append('upload_preset', CLOUDINARY_PRESET ?? '');
   const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
     method: 'POST', body: form,
   });
+  if (!res.ok) throw new Error(`Cloudinary ${res.status}`);
   const json = await res.json();
   return json.secure_url as string;
 }
