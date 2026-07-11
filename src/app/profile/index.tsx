@@ -131,7 +131,7 @@ export default function ProfileScreen() {
   const selBrands = user?.preferences?.brands ?? [];
 
   useEffect(() => {
-    if (!user) router.replace('/auth/register');
+    if (!user && Platform.OS !== 'web') router.replace('/auth/register');
   }, [user]);
 
   if (!user) return null;
