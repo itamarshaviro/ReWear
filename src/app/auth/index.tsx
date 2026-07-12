@@ -57,7 +57,7 @@ export default function LoginScreen() {
         <View style={styles.content}>
 
           <View style={styles.hero}>
-            <Logo width={260} height={122} />
+            <Logo width={320} height={150} />
             <Text style={styles.tagline}>קנה ומכור בגדים יד שנייה 👗</Text>
           </View>
 

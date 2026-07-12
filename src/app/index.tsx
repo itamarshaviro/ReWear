@@ -40,7 +40,7 @@ export default function HomeScreen() {
         <TouchableOpacity onPress={() => router.push('/seller/dashboard')} style={styles.headerBtn}>
           <Text style={styles.headerBtnText}>👗</Text>
         </TouchableOpacity>
-        <Logo width={100} height={47} />
+        <Logo width={150} height={70} />
         <TouchableOpacity onPress={() => router.push('/profile')} style={styles.headerBtn}>
           <Text style={styles.headerBtnText}>👤</Text>
           {matchCount > 0 ? (
