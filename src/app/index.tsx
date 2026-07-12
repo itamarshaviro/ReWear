@@ -6,6 +6,7 @@ import { router, Redirect } from 'expo-router';
 import { useAuth } from '@/context/auth-context';
 import { useApp } from '@/context/app-context';
 import { TabBar } from '@/components/tab-bar';
+import { Logo } from '@/components/logo';
 
 export default function HomeScreen() {
   const { user, isLoading } = useAuth();
@@ -39,7 +40,7 @@ export default function HomeScreen() {
         <TouchableOpacity onPress={() => router.push('/seller/dashboard')} style={styles.headerBtn}>
           <Text style={styles.headerBtnText}>👗</Text>
         </TouchableOpacity>
-        <Text style={styles.logo}>ReWear</Text>
+        <Logo width={100} height={47} />
         <TouchableOpacity onPress={() => router.push('/profile')} style={styles.headerBtn}>
           <Text style={styles.headerBtnText}>👤</Text>
           {matchCount > 0 ? (

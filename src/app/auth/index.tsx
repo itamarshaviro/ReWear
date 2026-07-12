@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/context/auth-context';
+import { Logo } from '@/components/logo';
 
 export default function LoginScreen() {
   const { signIn, user } = useAuth();
@@ -56,7 +57,7 @@ export default function LoginScreen() {
         <View style={styles.content}>
 
           <View style={styles.hero}>
-            <Text style={styles.logo}>ReWear</Text>
+            <Logo width={260} height={122} />
             <Text style={styles.tagline}>קנה ומכור בגדים יד שנייה 👗</Text>
           </View>
 
