@@ -138,6 +138,13 @@ export default function ChatScreen() {
     }
   }, [chat]);
 
+  // Poll for buyer confirmation when seller is waiting
+  useEffect(() => {
+    if (!chat?.sellerMarkedSold || chat?.isClosed) return;
+    const interval = setInterval(() => { refreshChats(); }, 4000);
+    return () => clearInterval(interval);
+  }, [chat?.sellerMarkedSold, chat?.isClosed]);
+
   if (!chat) {
     return (
       <SafeAreaView style={styles.container}>
@@ -177,11 +184,14 @@ export default function ChatScreen() {
     ]);
   }
 
-  function handleBuyerConfirm() {
-    const doConfirm = () => { buyerConfirmSold(chat!.id); router.push(`/rating/${chat!.id}`); };
+  async function handleBuyerConfirm() {
+    const doConfirm = async () => {
+      await buyerConfirmSold(chat!.id);
+      router.push(`/rating/${chat!.id}`);
+    };
     if (Platform.OS === 'web') {
       // eslint-disable-next-line no-restricted-globals
-      if (confirm(`לאשר שרכשת את "${chat!.itemName}"?`)) doConfirm();
+      if (confirm(`לאשר שרכשת את "${chat!.itemName}"?`)) await doConfirm();
       return;
     }
     Alert.alert('אישור רכישה', `לאשר שרכשת את "${chat!.itemName}"?`, [

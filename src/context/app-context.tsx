@@ -131,6 +131,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!configured || !dbId) return;
     loadRequests();
     loadChats();
+    loadReviews();
+    // Poll every 6s as fallback for realtime
+    const poll = setInterval(() => {
+      loadRequests();
+      loadChats();
+      loadReviews();
+    }, 6000);
+    return () => clearInterval(poll);
   }, [dbId]);
 
   // ── Realtime: new items ──────────────────────────────────────────────────
@@ -274,6 +282,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function loadReviews() {
+    if (!dbId) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (supabase.from('reviews') as any)
+      .select('id, score, review, created_at, reviewer_id, users:reviewer_id(first_name, last_name)')
+      .eq('seller_id', dbId)
+      .eq('is_report', false)
+      .order('created_at', { ascending: false });
+    if (!data) return;
+    setRatings(data.map((r: any) => {
+      const u = r.users as { first_name?: string; last_name?: string } | null;
+      const firstName = u?.first_name ?? '';
+      const lastInitial = u?.last_name ? u.last_name[0] + '.' : '';
+      const d = new Date(r.created_at);
+      const date = `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getFullYear()).slice(-2)}`;
+      return {
+        id: r.id,
+        chatId: '',
+        score: r.score,
+        review: r.review ?? '',
+        role: 'buyer' as const,
+        createdAt: r.created_at,
+        reviewer: firstName ? `${firstName} ${lastInitial}`.trim() : 'קונה',
+        date,
+      };
+    }));
+  }
+
   async function loadChats() {
     if (!dbId) return;
     type MatchWithItem = {
@@ -402,13 +438,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   async function sendInterest(item: ClothingItem) {
     if (configured && dbId) {
       const buyerName = user ? `${user.firstName} ${user.lastName[0]}.` : 'קונה';
-      await supabase.from('matches').insert({
+      const { error } = await supabase.from('matches').insert({
         item_id: item.id,
         buyer_id: dbId,
         seller_id: item.sellerId,
         buyer_name: buyerName,
         status: 'pending',
       });
+      if (error && error.code !== '23505') {
+        console.error('sendInterest error:', error.message, error.code);
+      }
       return;
     }
 
@@ -554,17 +593,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   async function buyerConfirmSold(chatId: string) {
     if (configured) {
-      const { data: match } = await supabase.from('matches').select('item_id, seller_id').eq('id', chatId).single();
-      if (match) {
-        const m = match as { item_id: string; seller_id: string };
-        await supabase.from('items').update({ is_available: false }).eq('id', m.item_id);
-        // Increment seller's sold counter atomically via DB function
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase.rpc as any)('increment_items_sold', { p_user_id: m.seller_id });
-        await loadItems();
-      }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('matches') as any).update({ status: 'completed' }).eq('id', chatId);
+      const { error } = await (supabase.rpc as any)('complete_match', { p_match_id: chatId });
+      if (error) {
+        console.error('complete_match error:', error.message);
+        // Fallback: update match directly
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.from('matches') as any).update({ status: 'completed' }).eq('id', chatId);
+      }
+      await loadItems();
     }
     setChats(prev => prev.map(c => c.id === chatId ? { ...c, isClosed: true, sellerMarkedSold: false } : c));
   }
@@ -584,7 +621,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const { data: matchData } = await supabase.from('matches').select('seller_id').eq('id', chatId).single();
       const sellerId = (matchData as { seller_id: string } | null)?.seller_id ?? null;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('reviews') as any).insert({
+      const { error: reviewError } = await (supabase.from('reviews') as any).insert({
         match_id: chatId,
         reviewer_id: dbId,
         seller_id: sellerId,
@@ -593,6 +630,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         is_report: isReport,
         report_reason: (isReport && reportReason) ? reportReason : null,
       });
+      if (reviewError) console.error('submitRating insert error:', reviewError.message, reviewError.code);
+      await loadReviews();
       return;
     }
 

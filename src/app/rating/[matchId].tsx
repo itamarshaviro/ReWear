@@ -34,10 +34,10 @@ export default function RatingScreen() {
     }
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (score === 0) { webAlert('בחר בין 1 ל-5 כוכבים.'); return; }
     if (isReport && !reportReason.trim()) { webAlert('אנא תאר את הסיבה לדיווח.'); return; }
-    submitRating(matchId ?? '', score, review.trim(), 'buyer', isReport, reportReason.trim());
+    await submitRating(matchId ?? '', score, review.trim(), 'buyer', isReport, reportReason.trim());
     if (Platform.OS === 'web') {
       // eslint-disable-next-line no-restricted-globals
       alert('תודה! הדירוג שלך נשמר בהצלחה.');

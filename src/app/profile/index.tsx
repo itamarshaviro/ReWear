@@ -32,13 +32,6 @@ async function uploadToCloudinary(uri: string): Promise<string> {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const DEMO_REVIEWS = [
-  { id: 'r1', score: 5, review: 'מוכר מעולה! הפריט הגיע בדיוק כמו בתמונה, עסקה חלקה ומהירה.', reviewer: 'ליאור כ.', date: '12.06.25' },
-  { id: 'r2', score: 4, review: 'שירות טוב, הפריט היה במצב טוב. ממליץ!', reviewer: 'יעל מ.', date: '05.06.25' },
-  { id: 'r3', score: 5, review: 'הגיב מהר, היה נחמד וסבלני. בהחלט אקנה שוב.', reviewer: 'אמיר ש.', date: '28.05.25' },
-];
-
-
 type ProfileTab = 'seller' | 'buyer';
 
 // ── Small components ──────────────────────────────────────────────────────────
@@ -148,16 +141,20 @@ export default function ProfileScreen() {
   const soldCount   = myListings.filter(l => getItemStatus(l.id) === 'sold').length;
   const activeCount = myListings.filter(l => getItemStatus(l.id) === 'active').length;
 
-  const allReviews = [...DEMO_REVIEWS];
-  ratings.forEach(r => {
-    if (r.review) {
-      allReviews.unshift({ id: r.id, score: r.score, review: r.review, reviewer: 'קונה', date: '15.06.25' });
-    }
-  });
-  const avgScore = allReviews.reduce((s, r) => s + r.score, 0) / (allReviews.length || 1);
+  const allReviews = ratings.map(r => ({
+    id: r.id,
+    score: r.score,
+    review: r.review,
+    reviewer: r.reviewer ?? 'קונה',
+    date: r.date ?? '',
+  }));
+  const avgScore = allReviews.length
+    ? allReviews.reduce((s, r) => s + r.score, 0) / allReviews.length
+    : 0;
 
-  // Trust score: avg rating (out of 100) + bonus for sales
-  const trustScore = Math.min(Math.round(avgScore * 20) + Math.min(soldCount * 3, 15), 99);
+  const trustScore = allReviews.length > 0
+    ? Math.min(Math.round(avgScore * 20) + Math.min(soldCount * 3, 15), 99)
+    : Math.min(soldCount * 10, 40);
 
   // Response time (demo — faster as more sales)
   const responseTime = soldCount >= 5 ? '~1 שעה' : soldCount >= 2 ? '~3 שעות' : '~12 שעות';
@@ -194,11 +191,15 @@ export default function ProfileScreen() {
           {user.isVerified && (
             <View style={styles.verifiedBadge}><Text style={styles.verifiedText}>✓ מאומת</Text></View>
           )}
-          <View style={styles.ratingRow}>
-            <Stars score={avgScore} size={18} />
-            <Text style={styles.ratingNum}>{avgScore.toFixed(1)}</Text>
-            <Text style={styles.ratingCount}>({allReviews.length} ביקורות)</Text>
-          </View>
+          {allReviews.length > 0 ? (
+            <View style={styles.ratingRow}>
+              <Stars score={avgScore} size={18} />
+              <Text style={styles.ratingNum}>{avgScore.toFixed(1)}</Text>
+              <Text style={styles.ratingCount}>({allReviews.length} ביקורות)</Text>
+            </View>
+          ) : (
+            <Text style={styles.noRatingText}>עדיין אין ביקורות</Text>
+          )}
         </View>
 
         {/* Tabs */}
@@ -252,9 +253,13 @@ export default function ProfileScreen() {
             {/* Reviews */}
             <View style={styles.card}>
               <Text style={styles.cardTitle}>ביקורות שקיבלתי</Text>
-              {allReviews.map(r => (
-                <ReviewCard key={r.id} {...r} />
-              ))}
+              {allReviews.length > 0 ? (
+                allReviews.map(r => (
+                  <ReviewCard key={r.id} {...r} />
+                ))
+              ) : (
+                <Text style={styles.cardSub}>עדיין לא קיבלת ביקורות · בצע עסקאות כדי לקבל דירוג</Text>
+              )}
             </View>
 
             {!user.isPremium ? (
@@ -461,4 +466,5 @@ const styles = StyleSheet.create({
   dashboardBtnText: { fontSize: 14, fontWeight: '700', color: '#6366F1' },
   logoutBtn: { backgroundColor: '#FEF2F2', borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
   logoutText: { fontSize: 14, fontWeight: '700', color: '#EF4444' },
+  noRatingText: { fontSize: 13, color: '#9CA3AF', fontWeight: '500' },
 });

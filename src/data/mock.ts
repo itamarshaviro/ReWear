@@ -117,6 +117,8 @@ export type Rating = {
   review: string;
   role: 'buyer' | 'seller';
   createdAt: string;
+  reviewer?: string;
+  date?: string;
 };
 
 export type AiConfidence = {
