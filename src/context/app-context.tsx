@@ -41,6 +41,7 @@ type AppContextType = {
   buyerConfirmSold: (chatId: string) => Promise<void>;
   buyerDeclineSold: (chatId: string) => Promise<void>;
   submitRating: (chatId: string, score: number, review: string, role: 'buyer' | 'seller', isReport?: boolean, reportReason?: string) => Promise<void>;
+  deleteChat: (chatId: string) => void;
   upgradePremium: () => Promise<void>;
 };
 
@@ -645,6 +646,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }]);
   }
 
+  function deleteChat(chatId: string) {
+    setChats(prev => prev.filter(c => c.id !== chatId));
+  }
+
   async function upgradePremium() {
     if (configured && dbId) {
       await supabase.from('users').update({ is_premium: true }).eq('id', dbId);
@@ -683,6 +688,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       buyerConfirmSold,
       buyerDeclineSold,
       submitRating,
+      deleteChat,
       upgradePremium,
     }}>
       {children}

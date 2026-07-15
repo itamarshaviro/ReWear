@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
@@ -46,12 +46,26 @@ function MatchCard({ req, onAccept, onHold, onDecline }: {
   );
 }
 
-function ChatRow({ chat }: { chat: Chat }) {
+function ChatRow({ chat, onDelete }: { chat: Chat; onDelete: () => void }) {
   const last = chat.messages[chat.messages.length - 1];
+
+  function handleLongPress() {
+    if (Platform.OS === 'web') {
+      // eslint-disable-next-line no-restricted-globals
+      if (confirm('למחוק את הצ\'אט הזה?')) onDelete();
+    } else {
+      Alert.alert('מחיקת צ\'אט', `למחוק את השיחה עם ${chat.otherPartyName}?`, [
+        { text: 'ביטול', style: 'cancel' },
+        { text: 'מחק', style: 'destructive', onPress: onDelete },
+      ]);
+    }
+  }
+
   return (
     <TouchableOpacity
       style={styles.chatRow}
       onPress={() => router.push({ pathname: '/chat/[id]', params: { id: chat.id } })}
+      onLongPress={handleLongPress}
       activeOpacity={0.8}
     >
       <View style={styles.chatRight}>
@@ -68,13 +82,19 @@ function ChatRow({ chat }: { chat: Chat }) {
         <Text style={styles.chatLast} numberOfLines={1}>{last?.text ?? ''}</Text>
         <Text style={styles.chatTime}>{last?.timestamp ?? ''}</Text>
       </View>
+      {chat.isClosed && (
+        <View style={styles.closedBadge}>
+          <Text style={styles.closedBadgeText}>הושלם</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
 
 export default function MessagesScreen() {
-  const { requests, chats, respondToRequest, refreshChats, refreshRequests } = useApp();
+  const { requests, chats, respondToRequest, refreshChats, refreshRequests, deleteChat } = useApp();
   const { user } = useAuth();
+  const [showArchive, setShowArchive] = useState(false);
 
   useFocusEffect(useCallback(() => {
     refreshChats();
@@ -82,6 +102,8 @@ export default function MessagesScreen() {
   }, []));
 
   const pending = requests.filter(r => r.status === 'pending');
+  const activeChats = chats.filter(c => !c.isClosed);
+  const archivedChats = chats.filter(c => c.isClosed);
 
   async function handleAccept(requestId: string) {
     await respondToRequest(requestId, 'accept');
@@ -95,7 +117,7 @@ export default function MessagesScreen() {
     respondToRequest(requestId, 'decline');
   }
 
-  const hasContent = pending.length > 0 || chats.length > 0;
+  const hasContent = pending.length > 0 || activeChats.length > 0 || archivedChats.length > 0;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -130,12 +152,35 @@ export default function MessagesScreen() {
         )}
 
         {/* Active chats */}
-        {chats.length > 0 && (
+        {activeChats.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>💬 שיחות פעילות</Text>
             <View style={styles.chatList}>
-              {chats.map(chat => <ChatRow key={chat.id} chat={chat} />)}
+              {activeChats.map(chat => (
+                <ChatRow key={chat.id} chat={chat} onDelete={() => deleteChat(chat.id)} />
+              ))}
             </View>
+          </View>
+        )}
+
+        {/* Archive */}
+        {archivedChats.length > 0 && (
+          <View style={styles.section}>
+            <TouchableOpacity
+              style={styles.archiveHeader}
+              onPress={() => setShowArchive(v => !v)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.archiveArrow}>{showArchive ? '▲' : '▼'}</Text>
+              <Text style={styles.sectionTitle}>📦 ארכיון ({archivedChats.length})</Text>
+            </TouchableOpacity>
+            {showArchive && (
+              <View style={[styles.chatList, styles.archiveList]}>
+                {archivedChats.map(chat => (
+                  <ChatRow key={chat.id} chat={chat} onDelete={() => deleteChat(chat.id)} />
+                ))}
+              </View>
+            )}
           </View>
         )}
 
@@ -208,11 +253,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#6366F1',
   },
   acceptBtnText: { fontSize: 12, fontWeight: '700', color: '#fff' },
-  // Chat rows (WhatsApp style)
+  // Chat rows
   chatList: {
     backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+  },
+  archiveList: {
+    opacity: 0.85,
   },
   chatRow: {
     flexDirection: 'row-reverse', padding: 14, gap: 12, alignItems: 'center',
@@ -227,6 +275,15 @@ const styles = StyleSheet.create({
   chatItem: { fontSize: 12, color: '#6366F1', fontWeight: '600', textAlign: 'right', flex: 1 },
   chatPrice: { fontSize: 12, fontWeight: '800', color: '#16A34A' },
   chatLast: { fontSize: 13, color: '#6B7280', textAlign: 'right' },
+  closedBadge: {
+    backgroundColor: '#F0FDF4', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
+    borderWidth: 1, borderColor: '#BBF7D0',
+  },
+  closedBadgeText: { fontSize: 11, fontWeight: '700', color: '#16A34A' },
+  archiveHeader: {
+    flexDirection: 'row-reverse', alignItems: 'center', gap: 8,
+  },
+  archiveArrow: { fontSize: 11, color: '#9CA3AF' },
   // Empty state
   empty: { alignItems: 'center', gap: 14, paddingVertical: 48 },
   emptyEmoji: { fontSize: 64 },
