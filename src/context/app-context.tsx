@@ -86,6 +86,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ClothingItem[]>([]);
   const [requests, setRequests] = useState<InterestRequest[]>([]);
   const [chats, setChats] = useState<Chat[]>(configured ? [] : [DEMO_CHAT]);
+  const hiddenChatIds = useRef<Set<string>>(new Set());
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [localPremium, setLocalPremium] = useState(false);
   const [draft, setDraft] = useState<AiDraft | null>(null);
@@ -354,7 +355,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
     }
 
-    setChats(matches.map(m => {
+    setChats(matches.filter(m => !hiddenChatIds.current.has(m.id)).map(m => {
       const item = m.items;
       const isSeller = m.seller_id === dbId;
       const otherPartyName = isSeller ? m.buyer_name : (item?.seller_name ?? 'מוכר');
@@ -654,6 +655,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   function deleteChat(chatId: string) {
+    hiddenChatIds.current.add(chatId);
     setChats(prev => prev.filter(c => c.id !== chatId));
   }
 
