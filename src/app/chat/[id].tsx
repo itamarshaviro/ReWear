@@ -220,7 +220,9 @@ export default function ChatScreen() {
           <Text style={styles.backText}>→</Text>
         </TouchableOpacity>
         <View style={styles.headerInfo}>
-          <Text style={styles.headerName}>{chat.otherPartyName}</Text>
+          <TouchableOpacity onPress={() => chat.otherPartyDbId && router.push({ pathname: '/profile/[userId]', params: { userId: chat.otherPartyDbId } })} activeOpacity={0.7}>
+            <Text style={[styles.headerName, styles.headerNameLink]}>{chat.otherPartyName}</Text>
+          </TouchableOpacity>
           <Text style={styles.headerItem} numberOfLines={1}>{chat.itemName}</Text>
         </View>
         <TouchableOpacity style={styles.reportBtn} onPress={() => setReportVisible(true)}>
@@ -315,6 +317,7 @@ const styles = StyleSheet.create({
   reportBtnText: { fontSize: 18, color: '#9CA3AF' },
   headerInfo: { flex: 1, alignItems: 'center', gap: 2 },
   headerName: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  headerNameLink: { color: '#6366F1', textDecorationLine: 'underline' },
   headerItem: { fontSize: 12, color: '#6366F1', fontWeight: '600' },
   headerRight: { alignItems: 'flex-end', gap: 6 },
   headerThumb: { width: 40, height: 40, borderRadius: 10 },

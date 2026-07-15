@@ -138,7 +138,7 @@ export default function ProfileScreen() {
   const fullName = `${user.firstName} ${user.lastName}`;
 
   // Seller stats
-  const soldCount   = myListings.filter(l => getItemStatus(l.id) === 'sold').length;
+  const soldCount   = user?.soldCount ?? myListings.filter(l => getItemStatus(l.id) === 'sold').length;
   const activeCount = myListings.filter(l => getItemStatus(l.id) === 'active').length;
 
   const allReviews = ratings.map(r => ({

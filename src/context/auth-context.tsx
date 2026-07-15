@@ -35,6 +35,7 @@ export type AuthUser = {
   preferences?: BuyerPreferences;
   profilePhoto?: string;
   gender?: 'male' | 'female';
+  soldCount?: number;
 };
 
 export type SignUpPayload = {
@@ -144,6 +145,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           profilePhoto: row.profile_photo ?? undefined,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           gender: ((data as any).gender === 'male' || (data as any).gender === 'female') ? (data as any).gender as 'male' | 'female' : undefined,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          soldCount: (data as any).items_sold ?? 0,
         });
         registerForPushNotifications(data.id);
       } else {
