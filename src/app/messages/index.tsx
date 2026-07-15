@@ -71,7 +71,7 @@ function ChatRow({ chat, onDelete }: { chat: Chat; onDelete: () => void }) {
       activeOpacity={0.8}
     >
       <TouchableOpacity style={styles.deleteBtn} onPress={confirmDelete} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Text style={styles.deleteBtnIcon}>🗑</Text>
+        <Text style={styles.deleteBtnIcon}>🗑️</Text>
       </TouchableOpacity>
       <View style={styles.chatRight}>
         <Text style={styles.chatName}>{chat.otherPartyName}</Text>
@@ -288,8 +288,11 @@ const styles = StyleSheet.create({
   archiveHeader: {
     flexDirection: 'row-reverse', alignItems: 'center', gap: 8,
   },
-  deleteBtn: { paddingHorizontal: 4, justifyContent: 'center' },
-  deleteBtnIcon: { fontSize: 16, opacity: 0.4 },
+  deleteBtn: {
+    backgroundColor: '#FEF2F2', borderRadius: 8,
+    padding: 8, justifyContent: 'center', alignItems: 'center',
+  },
+  deleteBtnIcon: { fontSize: 18 },
   archiveArrow: { fontSize: 11, color: '#9CA3AF' },
   // Empty state
   empty: { alignItems: 'center', gap: 14, paddingVertical: 48 },
