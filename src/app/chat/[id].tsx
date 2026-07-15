@@ -9,14 +9,17 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useApp } from '@/context/app-context';
 import { ActivityIndicator } from 'react-native';
 import type { ChatMessage } from '@/data/mock';
 import { ReportModal } from '@/components/report-modal';
+import { enhanceImage } from '@/lib/cloudinary';
 
 type ListItem =
   | { type: 'message'; msg: ChatMessage }
@@ -65,8 +68,27 @@ function DateSeparator({ label }: { label: string }) {
   );
 }
 
-function Bubble({ msg }: { msg: ChatMessage }) {
+function Bubble({ msg, onImagePress }: { msg: ChatMessage; onImagePress?: (url: string) => void }) {
   const isSeller = msg.from === 'seller';
+  if (msg.type === 'image' && msg.imageUrl) {
+    return (
+      <View style={[styles.bubbleRow, isSeller ? styles.bubbleRowRight : styles.bubbleRowLeft]}>
+        <View style={[styles.imageBubble, isSeller ? styles.imageBubbleSeller : styles.imageBubbleBuyer]}>
+          <TouchableOpacity onPress={() => onImagePress?.(msg.imageUrl!)} activeOpacity={0.9}>
+            <Image source={{ uri: msg.imageUrl }} style={styles.chatImage} contentFit="cover" />
+          </TouchableOpacity>
+          {!!msg.text && (
+            <Text style={[styles.bubbleText, isSeller ? styles.sellerText : styles.buyerText, { paddingHorizontal: 10, paddingBottom: 4 }]}>
+              {msg.text}
+            </Text>
+          )}
+          <Text style={[styles.bubbleTime, isSeller ? styles.sellerTime : styles.buyerTime, { paddingHorizontal: 10, paddingBottom: 6 }]}>
+            {msg.timestamp}
+          </Text>
+        </View>
+      </View>
+    );
+  }
   return (
     <View style={[styles.bubbleRow, isSeller ? styles.bubbleRowRight : styles.bubbleRowLeft]}>
       <View style={[styles.bubble, isSeller ? styles.sellerBubble : styles.buyerBubble]}>
@@ -127,6 +149,8 @@ export default function ChatScreen() {
   const [text, setText] = useState('');
   const [loadingRetry, setLoadingRetry] = useState(false);
   const [reportVisible, setReportVisible] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const listRef = useRef<FlatList<ListItem>>(null);
 
   const chat = chats.find(c => c.id === id);
@@ -169,6 +193,35 @@ export default function ChatScreen() {
     sendMessage(chat!.id, trimmed, 'seller');
     setText('');
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+  }
+
+  async function pickAndSendImage() {
+    if (Platform.OS !== 'web') {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('הרשאה נדרשת', 'יש לאפשר גישה לגלריה');
+        return;
+      }
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images',
+      quality: 0.85,
+      allowsEditing: false,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const uri = result.assets[0].uri;
+    setUploadingImage(true);
+    try {
+      const { enhancedUri } = await enhanceImage(uri);
+      const caption = text.trim();
+      await sendMessage(chat!.id, caption, chat!.isSeller ? 'seller' : 'buyer', enhancedUri);
+      setText('');
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 200);
+    } catch {
+      Alert.alert('שגיאה', 'העלאת התמונה נכשלה, נסה שוב');
+    } finally {
+      setUploadingImage(false);
+    }
   }
 
   function handleMarkSold() {
@@ -271,7 +324,7 @@ export default function ChatScreen() {
                 />
               );
             }
-            return <Bubble msg={item.msg} />;
+            return <Bubble msg={item.msg} onImagePress={setPreviewImage} />;
           }}
           onLayout={() => listRef.current?.scrollToEnd({ animated: false })}
         />
@@ -291,6 +344,12 @@ export default function ChatScreen() {
               returnKeyType="send"
               blurOnSubmit={false}
             />
+            <TouchableOpacity style={styles.cameraBtn} onPress={pickAndSendImage} activeOpacity={0.8} disabled={uploadingImage}>
+              {uploadingImage
+                ? <ActivityIndicator size="small" color="#6366F1" />
+                : <Text style={styles.cameraIcon}>📷</Text>
+              }
+            </TouchableOpacity>
           </View>
         )}
       </KeyboardAvoidingView>
@@ -299,6 +358,17 @@ export default function ChatScreen() {
         onClose={() => setReportVisible(false)}
         reportedUserId={chat.otherPartyDbId}
       />
+
+      <Modal visible={!!previewImage} transparent animationType="fade" onRequestClose={() => setPreviewImage(null)}>
+        <TouchableOpacity style={styles.previewOverlay} onPress={() => setPreviewImage(null)} activeOpacity={1}>
+          {previewImage && (
+            <Image source={{ uri: previewImage }} style={styles.previewImage} contentFit="contain" />
+          )}
+          <TouchableOpacity style={styles.previewClose} onPress={() => setPreviewImage(null)}>
+            <Text style={styles.previewCloseText}>✕</Text>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -401,6 +471,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#6366F1', alignItems: 'center', justifyContent: 'center',
   },
   sendIcon: { fontSize: 20, color: '#fff', fontWeight: '800' },
+  cameraBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center',
+  },
+  cameraIcon: { fontSize: 20 },
+  // Image bubble
+  imageBubble: {
+    maxWidth: '78%', borderRadius: 18, overflow: 'hidden', gap: 0,
+  },
+  imageBubbleSeller: { backgroundColor: '#6366F1', borderBottomRightRadius: 4 },
+  imageBubbleBuyer: { backgroundColor: '#fff', borderBottomLeftRadius: 4, borderWidth: 1, borderColor: '#E5E7EB' },
+  chatImage: { width: 220, height: 220 },
+  // Full-screen image preview
+  previewOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.92)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  previewImage: { width: '95%', height: '80%' },
+  previewClose: {
+    position: 'absolute', top: 50, right: 20,
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  previewCloseText: { fontSize: 18, color: '#fff', fontWeight: '700' },
   notFound: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   notFoundText: { fontSize: 18, color: '#6B7280' },
   backLink: { fontSize: 16, color: '#6366F1', fontWeight: '700' },

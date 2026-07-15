@@ -36,7 +36,7 @@ type AppContextType = {
   refreshChats: () => Promise<void>;
   sendInterest: (item: ClothingItem) => Promise<void>;
   respondToRequest: (requestId: string, response: 'accept' | 'hold' | 'decline') => Promise<void>;
-  sendMessage: (chatId: string, text: string, from: 'buyer' | 'seller') => Promise<void>;
+  sendMessage: (chatId: string, text: string, from: 'buyer' | 'seller', imageUrl?: string) => Promise<void>;
   markSold: (chatId: string) => Promise<void>;
   buyerConfirmSold: (chatId: string) => Promise<void>;
   buyerDeclineSold: (chatId: string) => Promise<void>;
@@ -170,7 +170,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .channel(`messages:${dbId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload) => {
-          const row = payload.new as { id: string; match_id: string; sender_id: string; text: string; created_at: string; type?: string };
+          const row = payload.new as { id: string; match_id: string; sender_id: string; text: string; created_at: string; type?: string; image_url?: string };
           const msgDate = new Date(row.created_at);
           const newMsg: ChatMessage = {
             id: row.id,
@@ -178,7 +178,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             from: row.sender_id === dbId ? 'seller' : 'buyer',
             timestamp: msgDate.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
             date: dateStr(msgDate),
-            type: (row.type === 'sold_notification') ? 'sold_notification' : 'text',
+            type: (row.type === 'sold_notification') ? 'sold_notification' : row.type === 'image' ? 'image' : 'text',
+            imageUrl: row.image_url ?? undefined,
           };
           setChats(prev => prev.map(c => {
             if (c.id !== row.match_id) return c;
@@ -353,6 +354,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         date: dateStr(md),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         type: (msg as any).type ?? 'text',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        imageUrl: (msg as any).image_url ?? undefined,
       });
     }
 
@@ -544,29 +547,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function sendMessage(chatId: string, text: string, from: 'buyer' | 'seller') {
+  async function sendMessage(chatId: string, text: string, from: 'buyer' | 'seller', imageUrl?: string) {
     if (configured && dbId) {
-      await supabase.from('messages').insert({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('messages') as any).insert({
         match_id: chatId,
         sender_id: dbId,
-        text,
+        text: text || '',
         is_read: false,
+        ...(imageUrl ? { image_url: imageUrl, type: 'image' } : {}),
       });
-      // Send push notification to the other party
       const chat = chats.find(c => c.id === chatId);
       if (chat?.otherPartyDbId) {
         const senderName = user?.firstName ?? 'מישהו';
         sendPushNotification(
           chat.otherPartyDbId,
           `הודעה חדשה מ${senderName}`,
-          text.length > 80 ? text.slice(0, 80) + '...' : text,
+          imageUrl ? '📷 תמונה' : (text.length > 80 ? text.slice(0, 80) + '...' : text),
           { screen: 'chat', chatId },
         );
       }
       return;
     }
 
-    const msg: ChatMessage = { id: `msg-${Date.now()}`, text, from, timestamp: ts(), date: dateStr() };
+    const msg: ChatMessage = {
+      id: `msg-${Date.now()}`, text, from, timestamp: ts(), date: dateStr(),
+      ...(imageUrl ? { imageUrl, type: 'image' as const } : {}),
+    };
     setChats(prev => prev.map(c => c.id === chatId ? { ...c, messages: [...c.messages, msg] } : c));
   }
 

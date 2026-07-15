@@ -94,7 +94,8 @@ export type ChatMessage = {
   from: 'buyer' | 'seller';
   timestamp: string;
   date?: string; // 'YYYY-MM-DD'
-  type?: 'text' | 'sold_notification';
+  type?: 'text' | 'sold_notification' | 'image';
+  imageUrl?: string;
 };
 
 export type Chat = {
