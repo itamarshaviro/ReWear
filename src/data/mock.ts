@@ -74,6 +74,7 @@ export type ClothingItem = {
   distance: number;
   lat?: number;
   lng?: number;
+  createdAt?: string;
 };
 
 export type InterestRequest = {

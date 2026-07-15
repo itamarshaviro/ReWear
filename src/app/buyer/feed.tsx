@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -19,6 +19,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useApp } from '@/context/app-context';
 import { CATEGORY_INFO, CONDITION_LABELS } from '@/data/mock';
 import type { Category, ClothingItem } from '@/data/mock';
+import { timeAgo } from '@/lib/time';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SW * 0.38;
@@ -111,7 +112,10 @@ function SwipeCard({ item, translateX, translateY, pan, isTop, depth }: CardProp
           <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
         </View>
         <View style={styles.infoBottomRow}>
-          <Text style={styles.dist}>📍 {formatDist(item.distance)}</Text>
+          <View style={styles.distRow}>
+            <Text style={styles.dist}>📍 {formatDist(item.distance)}</Text>
+            {!!item.createdAt && <Text style={styles.timeAgo}>{timeAgo(item.createdAt)}</Text>}
+          </View>
           <View style={styles.tags}>
             <View style={styles.sizeBadge}>
               <Text style={styles.sizeBadgeText}>{item.size}</Text>
@@ -140,7 +144,7 @@ export default function FeedScreen() {
     maxPrice: string;
     itemId: string;
   }>();
-  const { otherListings: allListings, sendInterest } = useApp();
+  const { otherListings: allListings, sendInterest, skipItem } = useApp();
 
   const maxDist = parseFloat(distance ?? '50');
   const sizeList = sizes ? sizes.split(',').filter(Boolean) : [];
@@ -156,6 +160,7 @@ export default function FeedScreen() {
 
   const initialIdx = itemId ? Math.max(0, filtered.findIndex(i => i.id === itemId)) : 0;
   const [idx, setIdx] = useState(initialIdx);
+  const currentItemRef = useRef<ClothingItem | null>(null);
   const [toast, setToast] = useState('');
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -176,10 +181,15 @@ export default function FeedScreen() {
     translateX.value = withTiming(SW * 1.5, { duration: 280 }, () => runOnJS(nextCard)());
   }, [translateX, nextCard]);
 
+  const doSkip = useCallback(() => {
+    if (currentItemRef.current) skipItem(currentItemRef.current.id);
+    nextCard();
+  }, [skipItem, nextCard]);
+
   const dislikeAction = useCallback(() => {
     'worklet';
-    translateX.value = withTiming(-SW * 1.5, { duration: 240 }, () => runOnJS(nextCard)());
-  }, [translateX, nextCard]);
+    translateX.value = withTiming(-SW * 1.5, { duration: 240 }, () => runOnJS(doSkip)());
+  }, [translateX, doSkip]);
 
   const pan = Gesture.Pan()
     .onUpdate(e => {
@@ -205,6 +215,7 @@ export default function FeedScreen() {
 
   const catInfo = category ? CATEGORY_INFO[category] : null;
   const visible = filtered.slice(idx, idx + 3);
+  currentItemRef.current = filtered[idx] ?? null;
   const isDone = idx >= filtered.length;
   const remaining = Math.max(0, filtered.length - idx);
 
@@ -383,7 +394,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  distRow: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8 },
   dist: { fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: '500' },
+  timeAgo: { fontSize: 11, color: 'rgba(255,255,255,0.45)' },
   tags: { flexDirection: 'row-reverse', alignItems: 'center', gap: 7 },
   sizeBadge: {
     backgroundColor: 'rgba(255,255,255,0.18)',

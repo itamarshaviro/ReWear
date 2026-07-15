@@ -1,10 +1,39 @@
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { Platform } from 'react-native';
 import type { ClothingItem, InterestRequest, Chat, ChatMessage, AiDraft, Rating } from '@/data/mock';
 import type { Category, Condition } from '@/data/mock';
 import { MOCK_ITEMS } from '@/data/mock';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { sendPushNotification } from '@/lib/notifications';
 import { useAuth } from './auth-context';
+
+const SKIPPED_KEY = 'rewear_skipped_items';
+
+async function loadSkippedIds(): Promise<Set<string>> {
+  try {
+    if (Platform.OS === 'web') {
+      const raw = typeof window !== 'undefined' ? window.localStorage.getItem(SKIPPED_KEY) : null;
+      return new Set(raw ? JSON.parse(raw) : []);
+    }
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    const raw = await AsyncStorage.getItem(SKIPPED_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch { return new Set(); }
+}
+
+async function saveSkippedIds(ids: Set<string>): Promise<void> {
+  try {
+    const arr = JSON.stringify([...ids]);
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined') window.localStorage.setItem(SKIPPED_KEY, arr);
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    await AsyncStorage.setItem(SKIPPED_KEY, arr);
+  } catch { /* ignore */ }
+}
 
 const FREE_LIMIT = 5;
 const PREMIUM_LIMIT = 50;
@@ -42,6 +71,8 @@ type AppContextType = {
   buyerDeclineSold: (chatId: string) => Promise<void>;
   submitRating: (chatId: string, score: number, review: string, role: 'buyer' | 'seller', isReport?: boolean, reportReason?: string) => Promise<void>;
   deleteChat: (chatId: string) => void;
+  skipItem: (itemId: string) => void;
+  skippedItemIds: Set<string>;
   upgradePremium: () => Promise<void>;
 };
 
@@ -93,6 +124,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isLoadingData, setIsLoadingData] = useState(configured);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const [skippedItemIds, setSkippedItemIds] = useState<Set<string>>(new Set());
+
+  // Load persisted skipped IDs on mount
+  useEffect(() => {
+    loadSkippedIds().then(ids => setSkippedItemIds(ids));
+  }, []);
+
+  function skipItem(itemId: string) {
+    setSkippedItemIds(prev => {
+      const next = new Set(prev);
+      next.add(itemId);
+      saveSkippedIds(next);
+      return next;
+    });
+  }
 
   const isPremium = localPremium || (user?.isPremium ?? false);
   const limit = isPremium ? PREMIUM_LIMIT : FREE_LIMIT;
@@ -100,7 +146,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     ? items.filter(i => i.sellerId === dbId)
     : items;
   const allListings = configured ? items : [...MOCK_ITEMS, ...items];
-  const otherListings = allListings.filter(i => dbId ? i.sellerId !== dbId : true);
+  const otherListings = allListings.filter(i => (dbId ? i.sellerId !== dbId : true) && !skippedItemIds.has(i.id));
   const canAddMore = myListings.length < limit;
 
   function handleSetUserLocation(loc: { latitude: number; longitude: number } | null) {
@@ -249,6 +295,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           distance,
           lat: row.lat ?? undefined,
           lng: row.lng ?? undefined,
+          createdAt: row.created_at ?? '',
         };
       }));
     }
@@ -706,6 +753,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       buyerDeclineSold,
       submitRating,
       deleteChat,
+      skipItem,
+      skippedItemIds,
       upgradePremium,
     }}>
       {children}

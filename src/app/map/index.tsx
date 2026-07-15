@@ -17,6 +17,7 @@ import { useMaps } from '@/context/maps-context';
 import { TabBar } from '@/components/tab-bar';
 import { CATEGORIES, CATEGORY_INFO, itemCoordinates } from '@/data/mock';
 import type { Category, ClothingItem } from '@/data/mock';
+import { timeAgo } from '@/lib/time';
 
 // Web-only: interactive Google Maps
 let GoogleMap: React.ComponentType<any> | null = null;
@@ -117,7 +118,10 @@ function ItemCard({ item, onPress }: { item: ClothingItem; onPress: () => void }
         <Text style={styles.itemCardBrand}>{item.brand}</Text>
         <View style={styles.itemCardFooter}>
           <Text style={styles.itemCardCat}>{catInfo.emoji} {catInfo.label}</Text>
-          <Text style={styles.itemCardDist}>📍 {item.distance.toFixed(1)} ק"מ</Text>
+          <View style={styles.itemCardDistRow}>
+            <Text style={styles.itemCardDist}>📍 {item.distance.toFixed(1)} ק"מ</Text>
+            {!!item.createdAt && <Text style={styles.itemCardTimeAgo}>{timeAgo(item.createdAt)}</Text>}
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -482,7 +486,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
   },
   itemCardCat: { fontSize: 12, color: '#6B7280' },
+  itemCardDistRow: { alignItems: 'flex-end', gap: 1 },
   itemCardDist: { fontSize: 12, color: '#9CA3AF' },
+  itemCardTimeAgo: { fontSize: 10, color: '#C4B5FD' },
 
   // Native map
   unavailable: {
