@@ -51,7 +51,7 @@ function MatchCard({ req, onAccept, onHold, onDecline }: {
 function ChatRow({ chat, onDelete }: { chat: Chat; onDelete: () => void }) {
   const last = chat.messages[chat.messages.length - 1];
 
-  function handleLongPress() {
+  function confirmDelete() {
     if (Platform.OS === 'web') {
       // eslint-disable-next-line no-restricted-globals
       if (confirm('למחוק את הצ\'אט הזה?')) onDelete();
@@ -67,9 +67,12 @@ function ChatRow({ chat, onDelete }: { chat: Chat; onDelete: () => void }) {
     <TouchableOpacity
       style={styles.chatRow}
       onPress={() => router.push({ pathname: '/chat/[id]', params: { id: chat.id } })}
-      onLongPress={handleLongPress}
+      onLongPress={confirmDelete}
       activeOpacity={0.8}
     >
+      <TouchableOpacity style={styles.deleteBtn} onPress={confirmDelete} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <Text style={styles.deleteBtnIcon}>🗑</Text>
+      </TouchableOpacity>
       <View style={styles.chatRight}>
         <Text style={styles.chatName}>{chat.otherPartyName}</Text>
         <Image source={{ uri: chat.itemImage }} style={styles.chatThumb} contentFit="cover" />
@@ -285,6 +288,8 @@ const styles = StyleSheet.create({
   archiveHeader: {
     flexDirection: 'row-reverse', alignItems: 'center', gap: 8,
   },
+  deleteBtn: { paddingHorizontal: 4, justifyContent: 'center' },
+  deleteBtnIcon: { fontSize: 16, opacity: 0.4 },
   archiveArrow: { fontSize: 11, color: '#9CA3AF' },
   // Empty state
   empty: { alignItems: 'center', gap: 14, paddingVertical: 48 },
