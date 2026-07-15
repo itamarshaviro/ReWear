@@ -139,6 +139,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       loadRequests();
       loadChats();
       loadReviews();
+      loadItems();
     }, 6000);
     return () => clearInterval(poll);
   }, [dbId]);
