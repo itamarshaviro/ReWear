@@ -34,6 +34,7 @@ export type AuthUser = {
   isPremium: boolean;
   preferences?: BuyerPreferences;
   profilePhoto?: string;
+  gender?: 'male' | 'female';
 };
 
 export type SignUpPayload = {
@@ -141,6 +142,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isPremium: data.is_premium ?? false,
           preferences: row.preferences ?? undefined,
           profilePhoto: row.profile_photo ?? undefined,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          gender: ((data as any).gender === 'male' || (data as any).gender === 'female') ? (data as any).gender as 'male' | 'female' : undefined,
         });
         registerForPushNotifications(data.id);
       } else {

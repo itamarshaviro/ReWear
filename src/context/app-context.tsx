@@ -256,7 +256,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!dbId) return;
     type MatchRow = {
       id: string; item_id: string; buyer_id: string; seller_id: string;
-      buyer_name: string; status: 'pending' | 'accepted' | 'declined'; created_at: string;
+      buyer_name: string; buyer_gender?: 'male' | 'female';
+      status: 'pending' | 'accepted' | 'declined'; created_at: string;
       items: { name: string; image_url: string | null; price: number | null } | null;
     };
     const { data } = await supabase
@@ -276,6 +277,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           itemImage: item?.image_url ?? '',
           itemPrice: item?.price ?? undefined,
           buyerName: row.buyer_name,
+          buyerGender: row.buyer_gender,
           status: row.status,
           createdAt: new Date(row.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
         };
@@ -439,11 +441,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   async function sendInterest(item: ClothingItem) {
     if (configured && dbId) {
       const buyerName = user ? `${user.firstName} ${user.lastName[0]}.` : 'קונה';
-      const { error } = await supabase.from('matches').insert({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('matches') as any).insert({
         item_id: item.id,
         buyer_id: dbId,
         seller_id: item.sellerId,
         buyer_name: buyerName,
+        buyer_gender: user?.gender ?? null,
         status: 'pending',
       });
       if (error && error.code !== '23505') {
@@ -464,10 +468,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   async function respondToRequest(requestId: string, response: 'accept' | 'hold' | 'decline') {
+    const g = user?.gender;
+    const happy   = g === 'female' ? 'שמחה'    : g === 'male' ? 'שמח'    : 'שמחים';
+    const sorry   = g === 'female' ? 'מצטערת'  : g === 'male' ? 'מצטער'  : 'מצטערים';
     const msgText =
-      response === 'accept' ? 'היי! הפריט זמין, שמחים שמעניין אותך 😊' :
+      response === 'accept' ? `היי! הפריט זמין, ${happy} שמעניין אותך 😊` :
       response === 'hold'   ? 'היי! מישהו אחר כרגע מתעניין בפריט ולכן בינתיים לא זמין. אם יהיה זמין בהמשך אעדכן אותך 🙏' :
-                              'הפריט כבר לא זמין, מצטערים 😔';
+                              `הפריט כבר לא זמין, ${sorry} 😔`;
     const newStatus = response === 'accept' ? 'accepted' : response === 'hold' ? 'on_hold' : 'declined';
 
     if (configured) {

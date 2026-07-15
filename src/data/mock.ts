@@ -83,6 +83,7 @@ export type InterestRequest = {
   itemImage: string;
   itemPrice?: number;
   buyerName: string;
+  buyerGender?: 'male' | 'female';
   status: 'pending' | 'accepted' | 'declined' | 'on_hold';
   createdAt: string;
 };

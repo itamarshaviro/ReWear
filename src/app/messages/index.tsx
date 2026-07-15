@@ -25,7 +25,9 @@ function MatchCard({ req, onAccept, onHold, onDecline }: {
         <Image source={{ uri: req.itemImage }} style={styles.matchThumb} contentFit="cover" />
         <View style={styles.matchInfo}>
           <Text style={styles.matchBuyer}>{req.buyerName}</Text>
-          <Text style={styles.matchItem} numberOfLines={1}>מעוניין/ת ב: {req.itemName}</Text>
+          <Text style={styles.matchItem} numberOfLines={1}>
+            {req.buyerGender === 'female' ? 'מעוניינת' : req.buyerGender === 'male' ? 'מעוניין' : 'מעוניין/ת'} ב: {req.itemName}
+          </Text>
           <Text style={styles.matchQuestion}>הפריט עדיין זמין?</Text>
           <Text style={styles.matchTime}>{req.createdAt}</Text>
         </View>
