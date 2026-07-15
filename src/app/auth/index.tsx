@@ -121,16 +121,21 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          <TouchableOpacity
-            style={styles.rememberRow}
-            onPress={() => setRememberMe(v => !v)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.rememberLabel}>זכור אותי</Text>
-            <View style={[styles.checkbox, rememberMe && styles.checkboxOn]}>
-              {rememberMe && <Text style={styles.checkmark}>✓</Text>}
-            </View>
-          </TouchableOpacity>
+          <View style={styles.belowPassword}>
+            <TouchableOpacity onPress={() => router.push('/auth/forgot-password')} activeOpacity={0.7}>
+              <Text style={styles.forgotText}>שכחתי סיסמא</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.rememberRow}
+              onPress={() => setRememberMe(v => !v)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.rememberLabel}>זכור אותי</Text>
+              <View style={[styles.checkbox, rememberMe && styles.checkboxOn]}>
+                {rememberMe && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity
             style={[styles.loginBtn, loading && styles.btnDisabled]}
@@ -214,6 +219,8 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: '#6366F1', backgroundColor: '#EEF2FF',
   },
   registerBtnText: { fontSize: 17, fontWeight: '800', color: '#6366F1' },
+  belowPassword: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  forgotText: { fontSize: 13, color: '#6366F1', fontWeight: '600' },
   rememberRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10,
   },

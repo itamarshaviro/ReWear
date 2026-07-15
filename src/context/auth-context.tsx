@@ -47,6 +47,7 @@ export type SignUpPayload = {
   city?: string;
   zip?: string;
   profilePhoto?: string;
+  gender?: 'male' | 'female';
 };
 
 type AuthContextType = {
@@ -57,6 +58,8 @@ type AuthContextType = {
   signUp: (payload: SignUpPayload) => Promise<'ok' | 'needs-verify' | string>;
   verifyOtp: (code: string) => Promise<string | null>;
   resendOtp: () => Promise<string | null>;
+  sendPasswordReset: (email: string) => Promise<string | null>;
+  confirmPasswordReset: (code: string, newPassword: string) => Promise<string | null>;
   logout: () => void;
   updatePreferences: (prefs: BuyerPreferences) => void;
   updateProfilePhoto: (url: string) => Promise<void>;
@@ -249,6 +252,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           is_verified: true,
           is_premium: false,
           ...(payload.profilePhoto ? { profile_photo: payload.profilePhoto } : {}),
+          ...(payload.gender ? { gender: payload.gender } : {}),
         });
 
       if (upsertError) {
@@ -303,6 +307,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   }
 
+  // ── Password reset ───────────────────────────────────────────────────────
+  async function sendPasswordReset(email: string): Promise<string | null> {
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim().toLowerCase(),
+      options: { shouldCreateUser: false },
+    });
+    if (error) return 'לא נמצא חשבון עם מייל זה';
+    setPendingEmail(email.trim().toLowerCase());
+    return null;
+  }
+
+  async function confirmPasswordReset(code: string, newPassword: string): Promise<string | null> {
+    if (!pendingEmail) return 'שגיאה: לא נמצא מייל ממתין';
+    suppressAuth.current = true;
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: pendingEmail,
+        token: code,
+        type: 'email',
+      });
+      if (error) return 'קוד שגוי או פג תוקף';
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+      if (updateError) return updateError.message;
+      await supabase.auth.signOut();
+      setPendingEmail(null);
+      return null;
+    } finally {
+      suppressAuth.current = false;
+    }
+  }
+
   // ── Other ────────────────────────────────────────────────────────────────
   function logout() {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -335,7 +370,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, pendingEmail, signIn, signUp, verifyOtp, resendOtp, logout, updatePreferences, updateProfilePhoto }}>
+    <AuthContext.Provider value={{ user, isLoading, pendingEmail, signIn, signUp, verifyOtp, resendOtp, sendPasswordReset, confirmPasswordReset, logout, updatePreferences, updateProfilePhoto }}>
       {children}
     </AuthContext.Provider>
   );

@@ -33,7 +33,6 @@ async function uploadPhoto(uri: string): Promise<string> {
   return (await res.json()).secure_url as string;
 }
 
-const PET_OPTIONS = ['🐶 כלב', '🐱 חתול', '🐹 שרקן', '🐰 ארנב', '🐦 ציפור', '🐠 דג', '🦎 זוחל', 'אחר'];
 const GOOGLE_MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
 
 type FieldProps = {
@@ -242,7 +241,7 @@ export default function RegisterScreen() {
   const [showPass,    setShowPass]    = useState(false);
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState('');
-  const [favPet,      setFavPet]      = useState<string | null>(null);
+  const [gender,      setGender]      = useState<'male' | 'female' | null>(null);
   const [photoUri,    setPhotoUri]    = useState<string | null>(null);
 
   async function handlePickPhoto() {
@@ -285,6 +284,7 @@ export default function RegisterScreen() {
       city:   city.trim() || undefined,
       zip:    zip.trim()  || undefined,
       profilePhoto,
+      gender: gender ?? undefined,
     });
     setLoading(false);
 
@@ -346,21 +346,23 @@ export default function RegisterScreen() {
             <Field label="טלפון" value={phone} onChangeText={setPhone} placeholder="050-1234567" keyboardType="phone-pad" />
             <Field label="גיל" value={age} onChangeText={setAge} placeholder="25" keyboardType="numeric" optional />
 
-            {/* Favorite pet */}
+            {/* Gender */}
             <View style={styles.field}>
               <View style={styles.labelRow}>
                 <Text style={styles.optional}>אופציונלי</Text>
-                <Text style={styles.label}>חיה אהובה</Text>
+                <Text style={styles.label}>מגדר</Text>
               </View>
-              <View style={styles.petGrid}>
-                {PET_OPTIONS.map((pet) => (
+              <View style={styles.genderRow}>
+                {([['female', 'אישה'], ['male', 'גבר']] as const).map(([val, label]) => (
                   <TouchableOpacity
-                    key={pet}
-                    style={[styles.petChip, favPet === pet && styles.petChipSelected]}
-                    onPress={() => setFavPet(favPet === pet ? null : pet)}
+                    key={val}
+                    style={[styles.genderChip, gender === val && styles.genderChipSelected]}
+                    onPress={() => setGender(gender === val ? null : val)}
                     activeOpacity={0.7}
                   >
-                    <Text style={[styles.petChipText, favPet === pet && styles.petChipTextSelected]}>{pet}</Text>
+                    <Text style={[styles.genderChipText, gender === val && styles.genderChipTextSelected]}>
+                      {val === 'female' ? '👩 ' : '👨 '}{label}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -501,11 +503,14 @@ const styles = StyleSheet.create({
   },
   eyeBtn: { paddingHorizontal: 14, paddingVertical: 13 },
   eyeIcon: { fontSize: 18 },
-  petGrid: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
-  petChip: { borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#F8F7FF' },
-  petChipSelected: { borderColor: '#6366F1', backgroundColor: '#EEF2FF' },
-  petChipText: { fontSize: 14, color: '#6B7280' },
-  petChipTextSelected: { color: '#6366F1', fontWeight: '700' },
+  genderRow: { flexDirection: 'row-reverse', gap: 12 },
+  genderChip: {
+    flex: 1, borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 14,
+    paddingVertical: 13, alignItems: 'center', backgroundColor: '#F8F7FF',
+  },
+  genderChipSelected: { borderColor: '#6366F1', backgroundColor: '#EEF2FF' },
+  genderChipText: { fontSize: 15, color: '#6B7280', fontWeight: '600' },
+  genderChipTextSelected: { color: '#6366F1', fontWeight: '800' },
   // Autocomplete suggestions
   acList: {
     backgroundColor: '#fff', borderRadius: 12,
