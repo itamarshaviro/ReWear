@@ -133,11 +133,12 @@ function SwipeCard({ item, translateX, translateY, pan, isTop, depth }: CardProp
 }
 
 export default function FeedScreen() {
-  const { category, distance, sizes, maxPrice } = useLocalSearchParams<{
+  const { category, distance, sizes, maxPrice, itemId } = useLocalSearchParams<{
     category: Category;
     distance: string;
     sizes: string;
     maxPrice: string;
+    itemId: string;
   }>();
   const { otherListings: allListings, sendInterest } = useApp();
 
@@ -153,7 +154,8 @@ export default function FeedScreen() {
     return true;
   });
 
-  const [idx, setIdx] = useState(0);
+  const initialIdx = itemId ? Math.max(0, filtered.findIndex(i => i.id === itemId)) : 0;
+  const [idx, setIdx] = useState(initialIdx);
   const [toast, setToast] = useState('');
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);

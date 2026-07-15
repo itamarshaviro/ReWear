@@ -239,7 +239,7 @@ function WebMapView({ items, center }: { items: ClothingItem[]; center: UserLoca
                 activeOpacity={0.85}
                 style={[styles.itemCardWrap, isSelected && styles.itemCardWrapSelected]}
               >
-                <ItemCard item={item} onPress={() => router.push('/buyer/feed')} />
+                <ItemCard item={item} onPress={() => router.push({ pathname: '/buyer/feed', params: { itemId: item.id } })} />
               </TouchableOpacity>
             );
           })}
@@ -316,7 +316,7 @@ function NativeMapView({ items, center }: { items: ClothingItem[]; center: UserL
           <TouchableOpacity onPress={() => setSelectedItem(null)} style={styles.closeBtn}>
             <Text style={styles.closeBtnText}>✕</Text>
           </TouchableOpacity>
-          <ItemCard item={selectedItem} onPress={() => router.push('/buyer/feed')} />
+          <ItemCard item={selectedItem} onPress={() => router.push({ pathname: '/buyer/feed', params: { itemId: selectedItem.id } })} />
         </View>
       )}
     </View>
