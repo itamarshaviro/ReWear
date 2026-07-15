@@ -387,41 +387,6 @@ export default function UploadScreen() {
       {phase === 'enhanced' && enhance && (
         <ScrollView contentContainerStyle={styles.resultArea} showsVerticalScrollIndicator={false}>
 
-          {/* Before / After */}
-          <Text style={styles.sectionTitle}>שיפור תמונה</Text>
-          {enhance.isDemo && (
-            <View style={styles.demoNotice}>
-              <Text style={styles.demoNoticeText}>מצב דמו — הגדר EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME לשיפור אמיתי</Text>
-            </View>
-          )}
-
-          <View style={styles.beforeAfterRow}>
-            <View style={styles.imageBox}>
-              <Image source={{ uri: enhance.originalUri }} style={styles.beforeAfterImg} contentFit="contain" />
-              <View style={styles.imageLabel}>
-                <Text style={styles.imageLabelText}>לפני</Text>
-              </View>
-            </View>
-            <View style={styles.arrowBox}>
-              <Text style={styles.arrow}>→</Text>
-            </View>
-            <View style={styles.imageBox}>
-              <Image source={{ uri: enhance.enhancedUri }} style={styles.beforeAfterImg} contentFit="contain" />
-              <View style={[styles.imageLabel, styles.imageLabelAfter]}>
-                <Text style={[styles.imageLabelText, styles.imageLabelTextAfter]}>אחרי ✨</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Transformations applied */}
-          <View style={styles.transformRow}>
-            {['בהירות', 'ניגודיות', 'רוויה', 'איכות', 'פורמט'].map(t => (
-              <View key={t} style={styles.transformChip}>
-                <Text style={styles.transformChipText}>✓ {t}</Text>
-              </View>
-            ))}
-          </View>
-
           {/* AI results */}
           {aiResult && (
             <View style={styles.aiCard}>
