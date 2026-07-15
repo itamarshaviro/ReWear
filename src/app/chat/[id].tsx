@@ -190,7 +190,7 @@ export default function ChatScreen() {
   function send() {
     const trimmed = text.trim();
     if (!trimmed) return;
-    sendMessage(chat!.id, trimmed, 'seller');
+    sendMessage(chat!.id, trimmed, chat!.isSeller ? 'seller' : 'buyer');
     setText('');
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   }
