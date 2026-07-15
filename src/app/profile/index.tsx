@@ -152,12 +152,7 @@ export default function ProfileScreen() {
     ? allReviews.reduce((s, r) => s + r.score, 0) / allReviews.length
     : 0;
 
-  const trustScore = allReviews.length > 0
-    ? Math.min(Math.round(avgScore * 20) + Math.min(soldCount * 3, 15), 99)
-    : Math.min(soldCount * 10, 40);
-
-  // Response time (demo — faster as more sales)
-  const responseTime = soldCount >= 5 ? '~1 שעה' : soldCount >= 2 ? '~3 שעות' : '~12 שעות';
+  const trustScore = allReviews.length > 0 ? Math.round(avgScore / 5 * 100) : 0;
 
   function handleLogout() {
     const confirmed = Platform.OS === 'web'
@@ -239,10 +234,6 @@ export default function ProfileScreen() {
               <View style={[styles.statBox, styles.statBoxBorder]}>
                 <Text style={styles.statNum}>{soldCount}</Text>
                 <Text style={styles.statLabel}>נמכרו</Text>
-              </View>
-              <View style={[styles.statBox, styles.statBoxBorder]}>
-                <Text style={styles.statNum}>{responseTime}</Text>
-                <Text style={styles.statLabel}>זמן תגובה</Text>
               </View>
               <View style={styles.statBox}>
                 <Text style={styles.statNum}>{allReviews.length}</Text>

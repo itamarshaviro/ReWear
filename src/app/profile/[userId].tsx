@@ -93,9 +93,7 @@ export default function PublicProfileScreen() {
   }, [userId]);
 
   const avgScore = reviews.length ? reviews.reduce((s, r) => s + r.score, 0) / reviews.length : 0;
-  const trustScore = reviews.length > 0
-    ? Math.min(Math.round(avgScore * 20) + Math.min((profile?.soldCount ?? 0) * 3, 15), 99)
-    : Math.min((profile?.soldCount ?? 0) * 10, 40);
+  const trustScore = reviews.length > 0 ? Math.round(avgScore / 5 * 100) : 0;
 
   const initials = profile ? `${profile.firstName[0]}${profile.lastName[0]}`.toUpperCase() : '?';
 
