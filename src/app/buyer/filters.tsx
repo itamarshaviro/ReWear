@@ -5,7 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { CATEGORY_INFO, ALL_SIZES } from '@/data/mock';
 import type { Category } from '@/data/mock';
 
-const DISTANCES = [0.5, 1, 2, 5, 10, 20, 50, 9999];
+const DISTANCES = [0.2, 0.5, 1, 2, 5, 10, 20, 50, 9999];
 const MAX_PRICES = [50, 100, 200, 300, 500];
 
 function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
