@@ -137,8 +137,9 @@ function SwipeCard({ item, translateX, translateY, pan, isTop, depth }: CardProp
 }
 
 export default function FeedScreen() {
-  const { category, distance, sizes, maxPrice, itemId } = useLocalSearchParams<{
+  const { category, categories, distance, sizes, maxPrice, itemId } = useLocalSearchParams<{
     category: Category;
+    categories: string;
     distance: string;
     sizes: string;
     maxPrice: string;
@@ -149,9 +150,10 @@ export default function FeedScreen() {
   const maxDist = parseFloat(distance ?? '50');
   const sizeList = sizes ? sizes.split(',').filter(Boolean) : [];
   const maxP = parseInt(maxPrice ?? '9999');
+  const catList = categories ? categories.split(',') : category ? [category] : [];
 
   const filtered = allListings.filter(item => {
-    if (category && item.category !== category) return false;
+    if (catList.length > 0 && !catList.includes(item.category)) return false;
     if (item.distance > maxDist) return false;
     if (sizeList.length > 0 && !sizeList.includes(item.size)) return false;
     if (item.price > maxP) return false;
@@ -213,7 +215,8 @@ export default function FeedScreen() {
     likeAction();
   }
 
-  const catInfo = category ? CATEGORY_INFO[category] : null;
+  const catInfo = catList.length === 1 ? CATEGORY_INFO[catList[0] as Category] : null;
+  const feedTitle = catList.length > 1 ? `${catList.length} קטגוריות` : null;
   const visible = filtered.slice(idx, idx + 3);
   currentItemRef.current = filtered[idx] ?? null;
   const isDone = idx >= filtered.length;
@@ -229,7 +232,7 @@ export default function FeedScreen() {
           <Text style={styles.backArrow}>→</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {catInfo ? `${catInfo.emoji} ${catInfo.label}` : 'פיד'}
+          {feedTitle ?? (catInfo ? `${catInfo.emoji} ${catInfo.label}` : 'פיד')}
         </Text>
         {/* Item counter chip — not Tinder progress bar */}
         {!isDone && filtered.length > 0 ? (

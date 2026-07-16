@@ -30,12 +30,16 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default function FiltersScreen() {
-  const { category } = useLocalSearchParams<{ category: Category }>();
+  const { categories, category } = useLocalSearchParams<{ categories: string; category: Category }>();
   const [distance, setDistance] = useState(5);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [maxPrice, setMaxPrice] = useState(200);
 
-  const catInfo = CATEGORY_INFO[category];
+  // Support both multi (categories) and legacy single (category)
+  const catList = categories ? categories.split(',') as Category[] : category ? [category] : [];
+  const headerLabel = catList.length === 1
+    ? `${CATEGORY_INFO[catList[0]]?.emoji ?? ''} ${CATEGORY_INFO[catList[0]]?.label ?? ''}`
+    : `${catList.length} קטגוריות`;
 
   function toggleSize(size: string) {
     setSelectedSizes(prev =>
@@ -47,7 +51,7 @@ export default function FiltersScreen() {
     router.push({
       pathname: '/buyer/feed',
       params: {
-        category,
+        categories: catList.join(','),
         distance: String(distance),
         sizes: selectedSizes.join(','),
         maxPrice: String(maxPrice),
@@ -61,7 +65,7 @@ export default function FiltersScreen() {
         <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/')} style={styles.backBtn}>
           <Text style={styles.backText}>→</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>{catInfo?.emoji} {catInfo?.label}</Text>
+        <Text style={styles.title}>{headerLabel}</Text>
         <View style={{ width: 40 }} />
       </View>
 
