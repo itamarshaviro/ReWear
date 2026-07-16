@@ -45,6 +45,7 @@ export default function CategoryScreen() {
 
   function handlePress(cat: CategoryDef) {
     if (cat.subs) {
+      // First tap expands; second tap on an already-expanded card collapses
       setExpanded(prev => prev === cat.id ? null : cat.id);
     } else {
       toggle(cat.id);
@@ -52,8 +53,8 @@ export default function CategoryScreen() {
   }
 
   function handleSubPress(parentCategory: Category) {
+    // Toggle the parent category but keep the sub-menu open
     toggle(parentCategory);
-    setExpanded(null);
   }
 
   function navigate() {
@@ -95,7 +96,13 @@ export default function CategoryScreen() {
                   <TouchableOpacity
                     key={cat.id}
                     style={[styles.card, (isSelected || isExpanded) && styles.cardActive]}
-                    onPress={() => handlePress(cat)}
+                    onPress={() => {
+                        if (cat.subs && isExpanded) {
+                          toggle(cat.id);
+                        } else {
+                          handlePress(cat);
+                        }
+                      }}
                     activeOpacity={0.8}
                   >
                     {isSelected && <View style={styles.checkBadge}><Text style={styles.checkText}>✓</Text></View>}
