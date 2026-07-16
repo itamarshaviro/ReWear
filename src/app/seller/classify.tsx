@@ -100,7 +100,11 @@ export default function ClassifyScreen() {
     if (!selectedCat) return;
     router.push({
       pathname: '/seller/upload',
-      params: { preCategory: selectedCat, preGender: gender ?? 'men' },
+      params: {
+        preCategory: selectedCat,
+        preGender: gender ?? 'men',
+        ...(selectedSub ? { preSubCategory: selectedSub } : {}),
+      },
     });
   }
 

@@ -32,29 +32,28 @@ const CATEGORIES: CategoryDef[] = [
 ];
 
 export default function CategoryScreen() {
-  const [selected, setSelected] = useState<Set<Category>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Category | null>(null);
 
-  function toggle(cat: Category) {
+  function toggleKey(key: string) {
     setSelected(prev => {
       const next = new Set(prev);
-      if (next.has(cat)) next.delete(cat); else next.add(cat);
+      if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
   }
 
   function handlePress(cat: CategoryDef) {
     if (cat.subs) {
-      // First tap expands; second tap on an already-expanded card collapses
       setExpanded(prev => prev === cat.id ? null : cat.id);
     } else {
-      toggle(cat.id);
+      toggleKey(cat.id);
     }
   }
 
-  function handleSubPress(parentCategory: Category) {
-    // Toggle the parent category but keep the sub-menu open
-    toggle(parentCategory);
+  function handleSubPress(sub: SubCategory) {
+    // Sub-categories use "parent:subKey" format for independent selection
+    toggleKey(`${sub.parentCategory}:${sub.key}`);
   }
 
   function navigate() {
@@ -98,7 +97,7 @@ export default function CategoryScreen() {
                     style={[styles.card, (isSelected || isExpanded) && styles.cardActive]}
                     onPress={() => {
                         if (cat.subs && isExpanded) {
-                          toggle(cat.id);
+                          toggleKey(cat.id);
                         } else {
                           handlePress(cat);
                         }
@@ -121,14 +120,16 @@ export default function CategoryScreen() {
               cat.subs && expanded === cat.id ? (
                 <View key={`subs-${cat.id}`} style={styles.subGrid}>
                   {cat.subs.map(sub => {
-                    const isSubSelected = selected.has(sub.parentCategory);
+                    const subKey = `${sub.parentCategory}:${sub.key}`;
+                    const isSubSelected = selected.has(subKey);
                     return (
                       <TouchableOpacity
                         key={sub.key}
                         style={[styles.subCard, isSubSelected && styles.subCardActive]}
-                        onPress={() => handleSubPress(sub.parentCategory)}
+                        onPress={() => handleSubPress(sub)}
                         activeOpacity={0.75}
                       >
+                        {isSubSelected && <View style={styles.subCheckBadge}><Text style={styles.checkText}>✓</Text></View>}
                         <Text style={styles.subEmoji}>{sub.emoji}</Text>
                         <Text style={[styles.subLabel, isSubSelected && styles.subLabelActive]}>{sub.label}</Text>
                       </TouchableOpacity>
@@ -185,6 +186,11 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, fontWeight: '700', color: '#374151', textAlign: 'center' },
   labelActive: { color: '#6366F1' },
   arrow: { fontSize: 10, color: '#6366F1', fontWeight: '700' },
+  subCheckBadge: {
+    position: 'absolute', top: 6, left: 6,
+    width: 18, height: 18, borderRadius: 9,
+    backgroundColor: '#6366F1', alignItems: 'center', justifyContent: 'center',
+  },
   subGrid: {
     flexDirection: 'row-reverse', flexWrap: 'wrap',
     gap: 10, marginTop: 10, marginBottom: 4, paddingHorizontal: 4,

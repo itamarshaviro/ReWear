@@ -46,8 +46,8 @@ function ConfidenceRow({ label, value, conf }: { label: string; value: string | 
 
 export default function UploadScreen() {
   const { setDraft } = useApp();
-  const { preCategory, preGender, preLabel } = useLocalSearchParams<{
-    preCategory?: string; preGender?: string; preLabel?: string;
+  const { preCategory, preGender, preLabel, preSubCategory } = useLocalSearchParams<{
+    preCategory?: string; preGender?: string; preLabel?: string; preSubCategory?: string;
   }>();
   const [phase, setPhase] = useState<Phase>('pick');
   const [enhance, setEnhance] = useState<EnhanceResult | null>(null);
@@ -177,6 +177,7 @@ export default function UploadScreen() {
       price: aiResult.price,
       confidence: conf,
       size: sellerSize.trim() || undefined,
+      subCategory: preSubCategory || undefined,
     });
     router.push('/seller/complete');
   }

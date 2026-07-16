@@ -153,7 +153,16 @@ export default function FeedScreen() {
   const catList = categories ? categories.split(',') : category ? [category] : [];
 
   const filtered = allListings.filter(item => {
-    if (catList.length > 0 && !catList.includes(item.category)) return false;
+    if (catList.length > 0) {
+      const matches = catList.some(sel => {
+        if (sel.includes(':')) {
+          const [cat, sub] = sel.split(':');
+          return item.category === cat && (item.subCategory === sub || !item.subCategory);
+        }
+        return item.category === sel;
+      });
+      if (!matches) return false;
+    }
     if (item.distance > maxDist) return false;
     if (sizeList.length > 0 && !sizeList.includes(item.size)) return false;
     if (item.price > maxP) return false;

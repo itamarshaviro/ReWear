@@ -296,6 +296,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           lat: row.lat ?? undefined,
           lng: row.lng ?? undefined,
           createdAt: row.created_at ?? '',
+          subCategory: row.sub_category ?? undefined,
         };
       }));
     }
@@ -451,6 +452,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         location: item.location || null,
         lat: item.lat ?? null,
         lng: item.lng ?? null,
+        sub_category: item.subCategory ?? null,
         is_available: true,
       });
       await loadItems();

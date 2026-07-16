@@ -75,6 +75,7 @@ export type ClothingItem = {
   lat?: number;
   lng?: number;
   createdAt?: string;
+  subCategory?: string;
 };
 
 export type InterestRequest = {
@@ -142,6 +143,7 @@ export type AiDraft = {
   color?: string;
   description?: string;
   confidence?: AiConfidence;
+  subCategory?: string;
   // User-filled (appended in complete.tsx before preview)
   price?: number;
   size?: string;
