@@ -19,6 +19,7 @@ export type BuyerPreferences = {
   shoeSizes: string[];
   minPrice: number;
   maxPrice: number;
+  maxDistance?: number;
 };
 
 export type AuthUser = {

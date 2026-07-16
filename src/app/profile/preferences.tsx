@@ -7,48 +7,29 @@ import { useAuth } from '@/context/auth-context';
 const POPULAR_BRANDS = [
   'Nike', 'Adidas', 'Zara', 'H&M', 'Mango', "Levi's",
   'Puma', 'Tommy Hilfiger', 'Ralph Lauren', 'Calvin Klein',
-  'New Balance', 'Converse', 'Vans', 'Pull&Bear', 'SHEIN',
-  'Rip Curl', 'Billabong', 'The North Face', 'Uniqlo', 'GAP',
+  'New Balance', 'Converse', 'Vans', 'Pull&Bear', 'Bershka',
+  'Stradivarius', 'ASOS', 'SHEIN', 'Primark', 'Guess',
+  'Wrangler', 'Lee', 'Diesel', 'Pepe Jeans', 'Dr. Martens',
+  'Skechers', 'Crocs', 'Champion', 'Under Armour', 'Reebok',
+  'Lacoste', 'The North Face', 'Uniqlo', 'GAP', 'Urban Outfitters',
+  'Rip Curl', 'Billabong', 'Quiksilver', 'Fox', 'Reserved',
+  'Tally Weijl', 'Massimo Dutti', 'Victoria\'s Secret', 'Forever 21',
+  'Koton', 'LC Waikiki', 'Defacto', 'River Island', 'Topshop', 'Intimissimi',
 ];
+
 const TOP_SIZES    = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 const BOTTOM_SIZES = ['26', '28', '30', '32', '34', '36', '38'];
 const SHOE_SIZES   = ['36', '37', '38', '39', '40', '41', '42', '43', '44'];
+const DISTANCES    = [9999, 50, 20, 10, 5, 2, 1, 0.5, 0.2];
+
+function distanceLabel(d: number) {
+  if (d < 1) return `${(d * 1000) | 0} מ'`;
+  if (d === 9999) return '50+ ק"מ';
+  return `${d} ק"מ`;
+}
 
 function toggle(arr: string[], val: string): string[] {
   return arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val];
-}
-
-function BrandDropdown({ selected, onToggle }: { selected: string[]; onToggle: (b: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const label = selected.length === 0
-    ? 'בחר מותגים...'
-    : selected.length === 1 ? selected[0] : `${selected.length} מותגים נבחרו`;
-
-  return (
-    <View>
-      <TouchableOpacity style={styles.ddTrigger} onPress={() => setOpen(o => !o)} activeOpacity={0.8}>
-        <Text style={styles.ddArrow}>{open ? '▲' : '▼'}</Text>
-        <Text style={[styles.ddLabel, selected.length > 0 && styles.ddLabelActive]} numberOfLines={1}>
-          {label}
-        </Text>
-      </TouchableOpacity>
-      {open && (
-        <View style={styles.ddList}>
-          {POPULAR_BRANDS.map(brand => {
-            const on = selected.includes(brand);
-            return (
-              <TouchableOpacity key={brand} style={styles.ddItem} onPress={() => onToggle(brand)} activeOpacity={0.7}>
-                <View style={[styles.ddCheck, on && styles.ddCheckOn]}>
-                  {on && <Text style={styles.ddCheckMark}>✓</Text>}
-                </View>
-                <Text style={[styles.ddItemText, on && styles.ddItemTextOn]}>{brand}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
-    </View>
-  );
 }
 
 function SizeGroup({ label, sizes, selected, onToggle }: {
@@ -86,6 +67,7 @@ export default function PreferencesScreen() {
   const [shoeSizes,   setShoeSizes]   = useState<string[]>(user?.preferences?.shoeSizes   ?? []);
   const [minPrice,    setMinPrice]    = useState(user?.preferences?.minPrice ?? 0);
   const [maxPrice,    setMaxPrice]    = useState(user?.preferences?.maxPrice ?? 500);
+  const [maxDistance, setMaxDistance] = useState<number | undefined>(user?.preferences?.maxDistance);
 
   function stepMin(dir: 1 | -1) {
     const idx = PRICE_STEPS.indexOf(minPrice);
@@ -98,10 +80,16 @@ export default function PreferencesScreen() {
     if (next > minPrice) setMaxPrice(next);
   }
 
+  function selectAllBrands() {
+    setBrands(brands.length === POPULAR_BRANDS.length ? [] : [...POPULAR_BRANDS]);
+  }
+
   function save() {
-    updatePreferences({ brands, topSizes, bottomSizes, shoeSizes, minPrice, maxPrice });
+    updatePreferences({ brands, topSizes, bottomSizes, shoeSizes, minPrice, maxPrice, maxDistance });
     router.canGoBack() ? router.back() : router.replace('/');
   }
+
+  const allBrandsSelected = brands.length === POPULAR_BRANDS.length;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -114,23 +102,76 @@ export default function PreferencesScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Distance */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>מותגים אהובים</Text>
-          <Text style={styles.cardSub}>בחר מותגים ותקבל התראה כשעולה פריט מתאים</Text>
-          <BrandDropdown selected={brands} onToggle={b => setBrands(prev => toggle(prev, b))} />
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>מרחק מקסימלי</Text>
+            {maxDistance !== undefined && (
+              <TouchableOpacity onPress={() => setMaxDistance(undefined)}>
+                <Text style={styles.clearBtn}>נקה</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <Text style={styles.cardSub}>הצג לי פריטים עד מרחק זה (אופציונלי)</Text>
+          <View style={styles.chipRow}>
+            {DISTANCES.map(d => (
+              <TouchableOpacity
+                key={d}
+                style={[styles.chip, maxDistance === d && styles.chipOn]}
+                onPress={() => setMaxDistance(prev => prev === d ? undefined : d)}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.chipText, maxDistance === d && styles.chipTextOn]}>
+                  {distanceLabel(d)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
+        {/* Brands */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>מותגים אהובים</Text>
+            <TouchableOpacity onPress={selectAllBrands} style={styles.selectAllBtn}>
+              <Text style={styles.selectAllText}>{allBrandsSelected ? 'בטל הכל' : 'בחר הכל'}</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.cardSub}>
+            {brands.length === 0
+              ? 'בחר מותגים ותקבל התראה כשעולה פריט מתאים (אופציונלי)'
+              : `${brands.length} מותגים נבחרו`}
+          </Text>
+          <View style={styles.chipRow}>
+            {POPULAR_BRANDS.map(brand => {
+              const on = brands.includes(brand);
+              return (
+                <TouchableOpacity
+                  key={brand}
+                  style={[styles.chip, on && styles.chipOn]}
+                  onPress={() => setBrands(prev => toggle(prev, brand))}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.chipText, on && styles.chipTextOn]}>{brand}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Sizes */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>המידות שלי</Text>
-          <Text style={styles.cardSub}>ניתן לבחור מספר מידות בכל קטגוריה</Text>
+          <Text style={styles.cardSub}>ניתן לבחור מספר מידות בכל קטגוריה (אופציונלי)</Text>
           <SizeGroup label="חולצות / ג׳קטים" sizes={TOP_SIZES}    selected={topSizes}    onToggle={s => setTopSizes(prev    => toggle(prev, s))} />
           <SizeGroup label="מכנסיים"           sizes={BOTTOM_SIZES} selected={bottomSizes} onToggle={s => setBottomSizes(prev => toggle(prev, s))} />
           <SizeGroup label="נעליים"             sizes={SHOE_SIZES}   selected={shoeSizes}   onToggle={s => setShoeSizes(prev   => toggle(prev, s))} />
         </View>
 
+        {/* Price */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>טווח מחיר</Text>
-          <Text style={styles.cardSub}>הצג לי פריטים בטווח זה בלבד</Text>
+          <Text style={styles.cardSub}>הצג לי פריטים בטווח זה (אופציונלי)</Text>
           <View style={styles.priceRow}>
             <View style={styles.priceBox}>
               <Text style={styles.priceBoxLabel}>עד</Text>
@@ -176,35 +217,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', borderRadius: 20, padding: 16, gap: 12,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
   },
+  cardHeader: {
+    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
+  },
   cardTitle: { fontSize: 15, fontWeight: '800', color: '#111827', textAlign: 'right' },
   cardSub: { fontSize: 12, color: '#9CA3AF', textAlign: 'right', marginTop: -6 },
+  clearBtn: { fontSize: 13, color: '#6366F1', fontWeight: '700' },
+  selectAllBtn: {
+    backgroundColor: '#EEF2FF', borderRadius: 8,
+    paddingHorizontal: 12, paddingVertical: 6,
+  },
+  selectAllText: { fontSize: 13, fontWeight: '700', color: '#6366F1' },
 
-  // Brand dropdown
-  ddTrigger: {
-    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between',
-    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#F9FAFB',
+  // Chips
+  chipRow: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 100,
+    backgroundColor: '#F9FAFB', borderWidth: 1.5, borderColor: '#E5E7EB',
   },
-  ddLabel: { fontSize: 14, color: '#9CA3AF', flex: 1, textAlign: 'right' },
-  ddLabelActive: { color: '#111827', fontWeight: '700' },
-  ddArrow: { fontSize: 11, color: '#9CA3AF', marginLeft: 8 },
-  ddList: {
-    marginTop: 4, borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
-    overflow: 'hidden', backgroundColor: '#fff',
-  },
-  ddItem: {
-    flexDirection: 'row-reverse', alignItems: 'center', gap: 12,
-    paddingHorizontal: 14, paddingVertical: 13,
-    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
-  },
-  ddCheck: {
-    width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: '#D1D5DB',
-    alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff',
-  },
-  ddCheckOn: { backgroundColor: '#6366F1', borderColor: '#6366F1' },
-  ddCheckMark: { fontSize: 13, color: '#fff', fontWeight: '800' },
-  ddItemText: { fontSize: 14, color: '#374151', flex: 1, textAlign: 'right' },
-  ddItemTextOn: { color: '#6366F1', fontWeight: '700' },
+  chipOn: { backgroundColor: '#6366F1', borderColor: '#6366F1' },
+  chipText: { fontSize: 13, fontWeight: '600', color: '#374151' },
+  chipTextOn: { color: '#fff', fontWeight: '700' },
 
   // Sizes
   sizeGroup: { gap: 8 },
