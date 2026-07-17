@@ -62,6 +62,34 @@ async function saveSkippedIds(ids: Set<string>): Promise<void> {
   } catch { /* ignore */ }
 }
 
+const SEEN_RATINGS_KEY = 'rewear_seen_ratings';
+
+async function loadSeenRatingIds(): Promise<Set<string>> {
+  try {
+    if (Platform.OS === 'web') {
+      const raw = typeof window !== 'undefined' ? window.localStorage.getItem(SEEN_RATINGS_KEY) : null;
+      return new Set(raw ? JSON.parse(raw) : []);
+    }
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    const raw = await AsyncStorage.getItem(SEEN_RATINGS_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch { return new Set(); }
+}
+
+async function saveSeenRatingIds(ids: Set<string>): Promise<void> {
+  try {
+    const arr = JSON.stringify([...ids]);
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined') window.localStorage.setItem(SEEN_RATINGS_KEY, arr);
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    await AsyncStorage.setItem(SEEN_RATINGS_KEY, arr);
+  } catch { /* ignore */ }
+}
+
 // Set to true to enforce upload limits (flip this when ready to monetize)
 const LIMITS_ENABLED = false;
 const MONTHLY_FREE_LIMIT = 5;
@@ -104,6 +132,8 @@ type AppContextType = {
   skippedItemIds: Set<string>;
   markChatRead: (chatId: string) => void;
   readChatIds: Set<string>;
+  markRatingsSeen: () => void;
+  unreadRatingsCount: number;
   upgradePremium: () => Promise<void>;
 };
 
@@ -157,11 +187,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const [skippedItemIds, setSkippedItemIds] = useState<Set<string>>(new Set());
   const [readChatIds, setReadChatIds] = useState<Set<string>>(new Set());
+  const [seenRatingIds, setSeenRatingIds] = useState<Set<string>>(new Set());
 
   // Load persisted IDs on mount
   useEffect(() => {
     loadSkippedIds().then(ids => setSkippedItemIds(ids));
     loadReadChatIds().then(ids => setReadChatIds(ids));
+    loadSeenRatingIds().then(ids => setSeenRatingIds(ids));
   }, []);
 
   function skipItem(itemId: string) {
@@ -181,6 +213,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return next;
     });
   }
+
+  function markRatingsSeen() {
+    setSeenRatingIds(prev => {
+      const next = new Set(prev);
+      ratings.forEach(r => next.add(r.id));
+      saveSeenRatingIds(next);
+      return next;
+    });
+  }
+
+  const unreadRatingsCount = ratings.filter(r => !seenRatingIds.has(r.id)).length;
 
   const isPremium = localPremium || (user?.isPremium ?? false);
   const myListings = configured
@@ -812,6 +855,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       skippedItemIds,
       markChatRead,
       readChatIds,
+      markRatingsSeen,
+      unreadRatingsCount,
       upgradePremium,
     }}>
       {children}

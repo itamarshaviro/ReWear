@@ -10,7 +10,7 @@ import { Logo } from '@/components/logo';
 
 export default function HomeScreen() {
   const { user, isLoading } = useAuth();
-  const { allListings } = useApp();
+  const { allListings, unreadRatingsCount } = useApp();
 
   const matchCount = useMemo(() => {
     const brands = user?.preferences?.brands ?? [];
@@ -43,7 +43,11 @@ export default function HomeScreen() {
         <Logo width={150} height={70} />
         <TouchableOpacity onPress={() => router.push('/profile')} style={styles.headerBtn}>
           <Text style={styles.headerBtnText}>👤</Text>
-          {matchCount > 0 ? (
+          {unreadRatingsCount > 0 ? (
+            <View style={styles.matchDot}>
+              <Text style={styles.matchDotText}>{unreadRatingsCount > 9 ? '9+' : unreadRatingsCount}</Text>
+            </View>
+          ) : matchCount > 0 ? (
             <View style={styles.matchDot}>
               <Text style={styles.matchDotText}>{matchCount}</Text>
             </View>

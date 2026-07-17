@@ -1,10 +1,10 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Platform, StyleSheet, Text, TouchableOpacity, View, ScrollView, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/context/auth-context';
 import { useApp } from '@/context/app-context';
@@ -92,9 +92,11 @@ function TrustBar({ score }: { score: number }) {
 
 export default function ProfileScreen() {
   const { user, logout, updatePreferences, updateProfilePhoto } = useAuth();
-  const { myListings, ratings, getItemStatus, allListings } = useApp();
+  const { myListings, ratings, getItemStatus, allListings, markRatingsSeen } = useApp();
 
   const [tab, setTab] = useState<ProfileTab>('seller');
+
+  useFocusEffect(useCallback(() => { markRatingsSeen(); }, []));
   const [uploading, setUploading] = useState(false);
 
   async function handlePickPhoto() {
