@@ -36,7 +36,7 @@ const SELLER_CATS: SellerCat[] = [
 ];
 
 export default function ClassifyScreen() {
-  const { canAddMore, listingCount, limit } = useApp();
+  const { canAddMore, monthlyUploadCount, monthlyLimit } = useApp();
   const [gender, setGender]           = useState<Gender | null>(null);
   const [selectedCat, setSelectedCat] = useState<Category | null>(null);
   const [selectedSub, setSelectedSub] = useState<string | null>(null);
@@ -54,10 +54,10 @@ export default function ClassifyScreen() {
         </View>
         <View style={styles.limitScreen}>
           <Text style={styles.limitEmoji}>📦</Text>
-          <Text style={styles.limitTitle}>הגעת למגבלת הפריטים</Text>
+          <Text style={styles.limitTitle}>הגעת למגבלה החודשית</Text>
           <Text style={styles.limitSub}>
-            יש לך {listingCount} מתוך {limit} פריטים פעילים בחבילת החינם.{'\n'}
-            שדרג לפרמיום כדי להעלות עד 50 פריטים.
+            העלת {monthlyUploadCount} מתוך {monthlyLimit} פריטים החודש בחבילת החינם.{'\n'}
+            שדרג לפרמיום כדי להעלות ללא הגבלה.
           </Text>
           <TouchableOpacity style={styles.limitUpgradeBtn} onPress={() => router.push('/seller/upgrade')} activeOpacity={0.85}>
             <Text style={styles.limitUpgradeBtnText}>⭐ שדרג לפרמיום · ₪20/חודש</Text>

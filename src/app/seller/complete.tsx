@@ -168,7 +168,7 @@ function Field({ label, required, error, children }: { label: string; required?:
 }
 
 export default function CompleteScreen() {
-  const { draft, setDraft, canAddMore, listingCount, limit, isPremium, upgradePremium } = useApp();
+  const { draft, setDraft, canAddMore, monthlyUploadCount, monthlyLimit, isPremium, upgradePremium } = useApp();
   const { user } = useAuth();
 
   const [name, setName] = useState(draft?.name ?? '');
@@ -248,7 +248,7 @@ export default function CompleteScreen() {
     if (!canAddMore) {
       Alert.alert(
         'הגעת למגבלה',
-        isPremium ? `פרסמת ${limit} פריטים (מגבלה פרמיום)` : 'מגבלת חינם: 5 פריטים. שדרג לפרמיום.',
+        'מגבלת חינם: 5 העלאות לחודש. שדרג לפרמיום.',
         isPremium
           ? [{ text: 'אישור' }]
           : [{ text: 'ביטול', style: 'cancel' }, { text: 'שדרג לפרמיום 🚀', onPress: upgradePremium }]
@@ -462,7 +462,7 @@ export default function CompleteScreen() {
 
           <View style={styles.limitRow}>
             <Text style={styles.limitText}>
-              {listingCount}/{isPremium ? '50' : '5'} פריטים{' '}
+              {isPremium ? '⭐ פרמיום' : `${monthlyUploadCount}/${monthlyLimit} העלאות החודש`}{' '}
               {!isPremium && <Text style={styles.upgradeLink} onPress={upgradePremium}>· שדרג לפרמיום</Text>}
             </Text>
           </View>

@@ -83,7 +83,7 @@ function ChatCard({ chat }: { chat: Chat }) {
 }
 
 export default function DashboardScreen() {
-  const { myListings, requests, chats, respondToRequest, isPremium, upgradePremium, listingCount, limit, refreshRequests } = useApp();
+  const { myListings, requests, chats, respondToRequest, isPremium, upgradePremium, monthlyUploadCount, monthlyLimit, refreshRequests } = useApp();
   const { uploaded } = useLocalSearchParams<{ uploaded?: string }>();
   const toastAnim = useRef(new Animated.Value(0)).current;
 
@@ -129,7 +129,7 @@ export default function DashboardScreen() {
           onPress={isPremium ? undefined : () => router.push('/seller/upgrade')}
         >
           <Text style={isPremium ? styles.premiumBadgeText : styles.freeBadgeText}>
-            {isPremium ? '⭐ פרמיום' : `${listingCount}/${limit} · שדרג`}
+            {isPremium ? '⭐ פרמיום' : `${monthlyUploadCount}/${monthlyLimit} החודש · שדרג`}
           </Text>
         </TouchableOpacity>
       </View>

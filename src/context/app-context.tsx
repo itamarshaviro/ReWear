@@ -35,8 +35,9 @@ async function saveSkippedIds(ids: Set<string>): Promise<void> {
   } catch { /* ignore */ }
 }
 
-const FREE_LIMIT = 5;
-const PREMIUM_LIMIT = 50;
+// Set to true to enforce upload limits (flip this when ready to monetize)
+const LIMITS_ENABLED = false;
+const MONTHLY_FREE_LIMIT = 5;
 
 type ItemStatus = 'active' | 'sold' | 'pending';
 
@@ -49,8 +50,8 @@ type AppContextType = {
   ratings: Rating[];
   isPremium: boolean;
   canAddMore: boolean;
-  listingCount: number;
-  limit: number;
+  monthlyUploadCount: number;
+  monthlyLimit: number;
   draft: AiDraft | null;
   isLoadingData: boolean;
   userLocation: { latitude: number; longitude: number } | null;
@@ -141,13 +142,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   const isPremium = localPremium || (user?.isPremium ?? false);
-  const limit = isPremium ? PREMIUM_LIMIT : FREE_LIMIT;
   const myListings = configured
     ? items.filter(i => i.sellerId === dbId)
     : items;
   const allListings = configured ? items : [...MOCK_ITEMS, ...items];
   const otherListings = allListings.filter(i => (dbId ? i.sellerId !== dbId : true) && !skippedItemIds.has(i.id));
-  const canAddMore = myListings.length < limit;
+
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+  const monthlyUploadCount = myListings.filter(i => i.createdAt && i.createdAt >= monthStart).length;
+  const monthlyLimit = MONTHLY_FREE_LIMIT;
+  const canAddMore = !LIMITS_ENABLED || isPremium || monthlyUploadCount < monthlyLimit;
 
   function handleSetUserLocation(loc: { latitude: number; longitude: number } | null) {
     userLocationRef.current = loc;
@@ -733,8 +737,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ratings,
       isPremium,
       canAddMore,
-      listingCount: myListings.length,
-      limit,
+      monthlyUploadCount,
+      monthlyLimit,
       draft,
       isLoadingData,
       userLocation,

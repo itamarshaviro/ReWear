@@ -58,7 +58,7 @@ export default function UpgradeScreen() {
         <View style={styles.successScreen}>
           <Text style={styles.successEmoji}>🎉</Text>
           <Text style={styles.successTitle}>ברוך הבא לפרמיום!</Text>
-          <Text style={styles.successSub}>עכשיו תוכל להעלות עד 50 פריטים</Text>
+          <Text style={styles.successSub}>עכשיו תוכל להעלות ללא הגבלה</Text>
           <TouchableOpacity style={styles.successBtn} onPress={() => router.replace('/seller/dashboard')}>
             <Text style={styles.successBtnText}>לדשבורד ←</Text>
           </TouchableOpacity>
@@ -88,7 +88,7 @@ export default function UpgradeScreen() {
             <Text style={styles.planPer}>לחודש</Text>
             <View style={styles.perks}>
               {[
-                'עד 50 פריטים פעילים',
+                'העלאות ללא הגבלה בחודש',
                 'עדיפות בתצוגה לקונים',
                 'תג מוכר מאומת',
                 'סטטיסטיקות מתקדמות',
