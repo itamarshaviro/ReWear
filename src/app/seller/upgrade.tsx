@@ -90,8 +90,6 @@ export default function UpgradeScreen() {
               {[
                 'העלאות ללא הגבלה בחודש',
                 'עדיפות בתצוגה לקונים',
-                'תג מוכר מאומת',
-                'סטטיסטיקות מתקדמות',
               ].map(p => (
                 <View key={p} style={styles.perkRow}>
                   <Text style={styles.perkText}>{p}</Text>
