@@ -88,7 +88,7 @@ export default function UpgradeScreen() {
             <Text style={styles.planPer}>לחודש</Text>
             <View style={styles.perks}>
               {[
-                'העלאות ללא הגבלה בחודש',
+                'עד 50 העלאות בחודש',
                 'עדיפות בתצוגה לקונים',
               ].map(p => (
                 <View key={p} style={styles.perkRow}>

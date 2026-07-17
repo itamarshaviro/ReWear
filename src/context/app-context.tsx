@@ -38,6 +38,7 @@ async function saveSkippedIds(ids: Set<string>): Promise<void> {
 // Set to true to enforce upload limits (flip this when ready to monetize)
 const LIMITS_ENABLED = false;
 const MONTHLY_FREE_LIMIT = 5;
+const MONTHLY_PREMIUM_LIMIT = 50;
 
 type ItemStatus = 'active' | 'sold' | 'pending';
 
@@ -150,8 +151,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
   const monthlyUploadCount = myListings.filter(i => i.createdAt && i.createdAt >= monthStart).length;
-  const monthlyLimit = MONTHLY_FREE_LIMIT;
-  const canAddMore = !LIMITS_ENABLED || isPremium || monthlyUploadCount < monthlyLimit;
+  const monthlyLimit = isPremium ? MONTHLY_PREMIUM_LIMIT : MONTHLY_FREE_LIMIT;
+  const canAddMore = !LIMITS_ENABLED || monthlyUploadCount < monthlyLimit;
 
   function handleSetUserLocation(loc: { latitude: number; longitude: number } | null) {
     userLocationRef.current = loc;
