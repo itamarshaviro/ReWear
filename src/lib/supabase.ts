@@ -8,10 +8,8 @@ const WebSocketImpl: typeof WebSocket =
     ? globalThis.WebSocket
     : require('ws');
 
-const SUPABASE_URL =
-  process.env.EXPO_PUBLIC_SUPABASE_URL ?? 'https://bkgjryjeyptdzbpwjhci.supabase.co';
-const SUPABASE_ANON_KEY =
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? 'sb_publishable_XC-vfnkioPruDQwwQU6QhA_4uXs0R4m';
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
 // AsyncStorage crashes on web during SSR because `window` isn't defined yet.
 // On native we need it for session persistence across app restarts.
