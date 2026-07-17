@@ -145,7 +145,7 @@ function SoldBubble({
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { chats, sendMessage, markSold, buyerConfirmSold, buyerDeclineSold, refreshChats } = useApp();
+  const { chats, sendMessage, markSold, buyerConfirmSold, buyerDeclineSold, refreshChats, markChatRead } = useApp();
   const [text, setText] = useState('');
   const [loadingRetry, setLoadingRetry] = useState(false);
   const [reportVisible, setReportVisible] = useState(false);
@@ -161,6 +161,11 @@ export default function ChatScreen() {
       refreshChats().finally(() => setLoadingRetry(false));
     }
   }, [chat]);
+
+  // Mark chat as read when opened
+  useEffect(() => {
+    if (id) markChatRead(id);
+  }, [id]);
 
   // Poll for buyer confirmation when seller is waiting
   useEffect(() => {

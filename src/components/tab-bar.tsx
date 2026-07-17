@@ -11,10 +11,14 @@ type Tab = {
 
 export function TabBar() {
   const pathname = usePathname();
-  const { requests, chats } = useApp();
+  const { requests, chats, readChatIds } = useApp();
 
   const pendingCount = requests.filter(r => r.status === 'pending').length;
-  const totalBadge = pendingCount + chats.length;
+  const unreadChatCount = chats.filter(c => {
+    const last = c.messages[c.messages.length - 1];
+    return last?.from === 'buyer' && !readChatIds.has(c.id);
+  }).length;
+  const totalBadge = pendingCount + unreadChatCount;
 
   const tabs: Tab[] = [
     { path: '/',         label: 'בית',     icon: '🏠' },

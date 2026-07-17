@@ -8,6 +8,33 @@ import { sendPushNotification } from '@/lib/notifications';
 import { useAuth } from './auth-context';
 
 const SKIPPED_KEY = 'rewear_skipped_items';
+const READ_CHATS_KEY = 'rewear_read_chats';
+
+async function loadReadChatIds(): Promise<Set<string>> {
+  try {
+    if (Platform.OS === 'web') {
+      const raw = typeof window !== 'undefined' ? window.localStorage.getItem(READ_CHATS_KEY) : null;
+      return new Set(raw ? JSON.parse(raw) : []);
+    }
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    const raw = await AsyncStorage.getItem(READ_CHATS_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch { return new Set(); }
+}
+
+async function saveReadChatIds(ids: Set<string>): Promise<void> {
+  try {
+    const arr = JSON.stringify([...ids]);
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined') window.localStorage.setItem(READ_CHATS_KEY, arr);
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    await AsyncStorage.setItem(READ_CHATS_KEY, arr);
+  } catch { /* ignore */ }
+}
 
 async function loadSkippedIds(): Promise<Set<string>> {
   try {
@@ -75,6 +102,8 @@ type AppContextType = {
   deleteChat: (chatId: string) => void;
   skipItem: (itemId: string) => void;
   skippedItemIds: Set<string>;
+  markChatRead: (chatId: string) => void;
+  readChatIds: Set<string>;
   upgradePremium: () => Promise<void>;
 };
 
@@ -127,10 +156,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const [skippedItemIds, setSkippedItemIds] = useState<Set<string>>(new Set());
+  const [readChatIds, setReadChatIds] = useState<Set<string>>(new Set());
 
-  // Load persisted skipped IDs on mount
+  // Load persisted IDs on mount
   useEffect(() => {
     loadSkippedIds().then(ids => setSkippedItemIds(ids));
+    loadReadChatIds().then(ids => setReadChatIds(ids));
   }, []);
 
   function skipItem(itemId: string) {
@@ -138,6 +169,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const next = new Set(prev);
       next.add(itemId);
       saveSkippedIds(next);
+      return next;
+    });
+  }
+
+  function markChatRead(chatId: string) {
+    setReadChatIds(prev => {
+      const next = new Set(prev);
+      next.add(chatId);
+      saveReadChatIds(next);
       return next;
     });
   }
@@ -237,6 +277,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
             if (c.messages.some(m => m.id === row.id)) return c; // already added by loadChats
             return { ...c, messages: [...c.messages, newMsg] };
           }));
+          // Message from other party → mark chat as unread
+          if (row.sender_id !== dbId) {
+            setReadChatIds(prev => {
+              const next = new Set(prev);
+              next.delete(row.match_id);
+              return next;
+            });
+          }
         }
       )
       .subscribe();
@@ -762,6 +810,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       deleteChat,
       skipItem,
       skippedItemIds,
+      markChatRead,
+      readChatIds,
       upgradePremium,
     }}>
       {children}
