@@ -86,7 +86,6 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.subFooter}>חינם עד 5 פריטים · פרמיום עד 50</Text>
 
       <TabBar />
     </SafeAreaView>

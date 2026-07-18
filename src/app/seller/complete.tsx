@@ -168,7 +168,7 @@ function Field({ label, required, error, children }: { label: string; required?:
 }
 
 export default function CompleteScreen() {
-  const { draft, setDraft, canAddMore, monthlyUploadCount, monthlyLimit, isPremium, upgradePremium } = useApp();
+  const { draft, setDraft } = useApp();
   const { user } = useAuth();
 
   const [name, setName] = useState(draft?.name ?? '');
@@ -245,17 +245,6 @@ export default function CompleteScreen() {
     if (newErrors.size > 0) { setErrors(newErrors); return; }
     setErrors(new Set());
 
-    if (!canAddMore) {
-      Alert.alert(
-        'הגעת למגבלה',
-        'מגבלת חינם: 5 העלאות לחודש. שדרג לפרמיום.',
-        isPremium
-          ? [{ text: 'אישור' }]
-          : [{ text: 'ביטול', style: 'cancel' }, { text: 'שדרג לפרמיום 🚀', onPress: upgradePremium }]
-      );
-      return;
-    }
-
     setSaving(true);
 
     // Priority: manual pin → GPS → geocode location text → geocode profile city
@@ -292,12 +281,6 @@ export default function CompleteScreen() {
         <Text style={styles.title}>פרסם פריט</Text>
         <View style={{ width: 40 }} />
       </View>
-
-      {!canAddMore && !isPremium && (
-        <TouchableOpacity style={styles.premiumBanner} onPress={upgradePremium}>
-          <Text style={styles.premiumBannerText}>🚀 שדרג לפרמיום — עד 50 פריטים</Text>
-        </TouchableOpacity>
-      )}
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -460,15 +443,8 @@ export default function CompleteScreen() {
             )}
           </Field>
 
-          <View style={styles.limitRow}>
-            <Text style={styles.limitText}>
-              {isPremium ? '⭐ פרמיום' : `${monthlyUploadCount}/${monthlyLimit} העלאות החודש`}{' '}
-              {!isPremium && <Text style={styles.upgradeLink} onPress={upgradePremium}>· שדרג לפרמיום</Text>}
-            </Text>
-          </View>
-
           <TouchableOpacity
-            style={[styles.previewBtn, (!canAddMore || saving) && styles.previewBtnDisabled]}
+            style={[styles.previewBtn, saving && styles.previewBtnDisabled]}
             onPress={goToPreview}
             activeOpacity={0.85}
             disabled={saving}

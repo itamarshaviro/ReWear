@@ -124,14 +124,7 @@ export default function DashboardScreen() {
           <Text style={styles.backText}>→</Text>
         </TouchableOpacity>
         <Text style={styles.title}>הפריטים שלי</Text>
-        <TouchableOpacity
-          style={isPremium ? styles.premiumBadge : styles.freeBadge}
-          onPress={isPremium ? undefined : () => router.push('/seller/upgrade')}
-        >
-          <Text style={isPremium ? styles.premiumBadgeText : styles.freeBadgeText}>
-            {isPremium ? '⭐ פרמיום' : `${monthlyUploadCount}/${monthlyLimit} החודש · שדרג`}
-          </Text>
-        </TouchableOpacity>
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

@@ -36,39 +36,10 @@ const SELLER_CATS: SellerCat[] = [
 ];
 
 export default function ClassifyScreen() {
-  const { canAddMore, monthlyUploadCount, monthlyLimit } = useApp();
   const [gender, setGender]           = useState<Gender | null>(null);
   const [selectedCat, setSelectedCat] = useState<Category | null>(null);
   const [selectedSub, setSelectedSub] = useState<string | null>(null);
   const [expanded, setExpanded]       = useState<Category | null>(null);
-
-  if (!canAddMore) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <View style={{ width: 40 }} />
-          <Text style={styles.title}>הוספת פריט</Text>
-          <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/')} style={styles.backBtn}>
-            <Text style={styles.backText}>→</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.limitScreen}>
-          <Text style={styles.limitEmoji}>📦</Text>
-          <Text style={styles.limitTitle}>הגעת למגבלה החודשית</Text>
-          <Text style={styles.limitSub}>
-            העלת {monthlyUploadCount} מתוך {monthlyLimit} פריטים החודש בחבילת החינם.{'\n'}
-            שדרג לפרמיום כדי להעלות ללא הגבלה.
-          </Text>
-          <TouchableOpacity style={styles.limitUpgradeBtn} onPress={() => router.push('/seller/upgrade')} activeOpacity={0.85}>
-            <Text style={styles.limitUpgradeBtnText}>⭐ שדרג לפרמיום · ₪20/חודש</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.limitBackBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/')}>
-            <Text style={styles.limitBackBtnText}>חזור</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   const visible = gender ? SELLER_CATS.filter(c => c.genders.includes(gender)) : [];
 
