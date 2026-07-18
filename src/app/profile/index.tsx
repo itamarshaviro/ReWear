@@ -255,15 +255,6 @@ export default function ProfileScreen() {
               )}
             </View>
 
-            {!user.isPremium ? (
-              <TouchableOpacity style={styles.upgradeBtn} onPress={() => router.push('/seller/upgrade')}>
-                <Text style={styles.upgradeBtnText}>⭐ שדרג לפרמיום · ₪20/חודש</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.premiumActiveBadge}>
-                <Text style={styles.premiumActiveBadgeText}>⭐ פרמיום פעיל</Text>
-              </View>
-            )}
 
             <TouchableOpacity style={styles.dashboardBtn} onPress={() => router.push('/seller/dashboard')}>
               <Text style={styles.dashboardBtnText}>הדשבורד שלי →</Text>
