@@ -235,6 +235,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             first_name: payload.firstName,
             last_name: payload.lastName,
             phone: payload.phone,
+            address: address || null,
+            gender: payload.gender || null,
+            profile_photo: payload.profilePhoto || null,
           },
         },
       });
@@ -247,25 +250,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const authUser = data.user;
       if (!authUser) return 'שגיאה ביצירת חשבון';
-
-      const { error: upsertError } = await (supabase.from('users') as any)
-        .upsert({
-          auth_id: authUser.id,
-          first_name: payload.firstName,
-          last_name: payload.lastName,
-          email: payload.email,
-          phone: payload.phone,
-          address: address || null,
-          is_verified: true,
-          is_premium: false,
-          ...(payload.profilePhoto ? { profile_photo: payload.profilePhoto } : {}),
-          ...(payload.gender ? { gender: payload.gender } : {}),
-        });
-
-      if (upsertError) {
-        await supabase.auth.signOut();
-        return 'שגיאה בשמירת הפרטים: ' + upsertError.message;
-      }
 
       if (data.session) {
         await supabase.auth.signOut();
@@ -316,12 +300,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Password reset ───────────────────────────────────────────────────────
   async function sendPasswordReset(email: string): Promise<string | null> {
+    const normalizedEmail = email.trim().toLowerCase();
     const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
+      email: normalizedEmail,
       options: { shouldCreateUser: false },
     });
-    if (error) return 'לא נמצא חשבון עם מייל זה';
-    setPendingEmail(email.trim().toLowerCase());
+    if (error) {
+      if (error.message.includes('rate limit') || error.message.includes('Rate limit')) return 'שלחנו מייל לאחרונה — נסה שוב בעוד כמה דקות';
+      if (error.message.includes('not found') || error.message.includes('does not exist')) return 'לא נמצא חשבון עם מייל זה';
+      return 'שגיאה: ' + error.message;
+    }
+    setPendingEmail(normalizedEmail);
     return null;
   }
 
