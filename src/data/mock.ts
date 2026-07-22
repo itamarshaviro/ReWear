@@ -110,6 +110,8 @@ export type Chat = {
   otherPartyDbId?: string;
   messages: ChatMessage[];
   isClosed?: boolean;
+  isArchived?: boolean;
+  isOnHold?: boolean;
   isSeller?: boolean;
   sellerMarkedSold?: boolean;
 };

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -16,6 +16,7 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router, useLocalSearchParams } from 'expo-router';
+import * as Location from 'expo-location';
 import { useApp } from '@/context/app-context';
 import { CATEGORY_INFO, CONDITION_LABELS } from '@/data/mock';
 import type { Category, ClothingItem } from '@/data/mock';
@@ -145,7 +146,18 @@ export default function FeedScreen() {
     maxPrice: string;
     itemId: string;
   }>();
-  const { otherListings: allListings, sendInterest, skipItem } = useApp();
+  const { otherListings: allListings, sendInterest, skipItem, setUserLocation, userLocation } = useApp();
+
+  useEffect(() => {
+    if (userLocation) return; // already have location
+    Location.requestForegroundPermissionsAsync().then(({ status }) => {
+      if (status !== 'granted') return;
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).then(pos => {
+        setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+      }).catch(() => {});
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const maxDist = parseFloat(distance ?? '50');
   const sizeList = sizes ? sizes.split(',').filter(Boolean) : [];
@@ -237,7 +249,7 @@ export default function FeedScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/')} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.replace('/')} style={styles.backBtn}>
           <Text style={styles.backArrow}>→</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
@@ -267,7 +279,7 @@ export default function FeedScreen() {
             <Text style={styles.emptyEmoji}>{filtered.length === 0 ? '🔍' : '✨'}</Text>
             <Text style={styles.emptyTitle}>{filtered.length === 0 ? 'לא נמצאו פריטים' : 'ראית הכל!'}</Text>
             <Text style={styles.emptySub}>נסה לשנות את הסינון או חזור מאוחר יותר</Text>
-            <TouchableOpacity style={styles.backFilterBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/')}>
+            <TouchableOpacity style={styles.backFilterBtn} onPress={() => router.replace('/')}>
               <Text style={styles.backFilterText}>שנה סינון</Text>
             </TouchableOpacity>
           </View>

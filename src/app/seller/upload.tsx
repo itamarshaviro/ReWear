@@ -138,7 +138,7 @@ export default function UploadScreen() {
         condition,
         color: color ?? '',
         description: `זוהה אוטומטית: ${hfResult.caption}`,
-        price: suggestPrice(hfResult.brand, condition),
+        price: hfResult.price,
         confidence: {
           name:      hfResult.brand || hfResult.category ? 0.82 : 0,
           brand:     hfResult.brand     ? 0.88 : 0,

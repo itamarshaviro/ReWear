@@ -9,7 +9,6 @@ import { useAuth } from './auth-context';
 
 const SKIPPED_KEY = 'rewear_skipped_items';
 const READ_CHATS_KEY = 'rewear_read_chats';
-
 async function loadReadChatIds(): Promise<Set<string>> {
   try {
     if (Platform.OS === 'web') {
@@ -122,12 +121,13 @@ type AppContextType = {
   refreshChats: () => Promise<void>;
   sendInterest: (item: ClothingItem) => Promise<void>;
   respondToRequest: (requestId: string, response: 'accept' | 'hold' | 'decline') => Promise<void>;
+  updateMatchStatus: (chatId: string, action: 'release' | 'close') => Promise<void>;
   sendMessage: (chatId: string, text: string, from: 'buyer' | 'seller', imageUrl?: string) => Promise<void>;
   markSold: (chatId: string) => Promise<void>;
   buyerConfirmSold: (chatId: string) => Promise<void>;
   buyerDeclineSold: (chatId: string) => Promise<void>;
   submitRating: (chatId: string, score: number, review: string, role: 'buyer' | 'seller', isReport?: boolean, reportReason?: string) => Promise<void>;
-  deleteChat: (chatId: string) => void;
+  deleteChat: (chatId: string) => Promise<void>;
   skipItem: (itemId: string) => void;
   skippedItemIds: Set<string>;
   markChatRead: (chatId: string) => void;
@@ -178,7 +178,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ClothingItem[]>([]);
   const [requests, setRequests] = useState<InterestRequest[]>([]);
   const [chats, setChats] = useState<Chat[]>(configured ? [] : [DEMO_CHAT]);
-  const hiddenChatIds = useRef<Set<string>>(new Set());
+  const locallyDeletedChatIds = useRef<Set<string>>(new Set());
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [localPremium, setLocalPremium] = useState(false);
   const [draft, setDraft] = useState<AiDraft | null>(null);
@@ -268,6 +268,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadRequests();
     loadChats();
     loadReviews();
+    // Load items the buyer already liked so they don't reappear in the feed
+    supabase.from('matches').select('item_id').eq('buyer_id', dbId).then(({ data }) => {
+      if (data?.length) {
+        setSkippedItemIds(prev => {
+          const next = new Set(prev);
+          data.forEach((m: { item_id: string }) => next.add(m.item_id));
+          return next;
+        });
+      }
+    });
     // Poll every 6s as fallback for realtime
     const poll = setInterval(() => {
       loadRequests();
@@ -472,8 +482,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .from('matches')
       .select('*, items(name, image_url, seller_name, price)')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .in('status', ['accepted', 'on_hold', 'completed'] as any)
-      .or(`seller_id.eq.${dbId},buyer_id.eq.${dbId}`)
+      .in('status', ['accepted', 'on_hold', 'completed', 'declined'] as any)
+      .or(`and(seller_id.eq.${dbId},seller_hidden.eq.false),and(buyer_id.eq.${dbId},buyer_hidden.eq.false)`)
       .order('created_at', { ascending: false });
     const matches = matchesRaw as unknown as MatchWithItem[] | null;
 
@@ -503,7 +513,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
     }
 
-    setChats(matches.filter(m => !hiddenChatIds.current.has(m.id)).map(m => {
+    setChats(matches.filter(m => !locallyDeletedChatIds.current.has(m.id)).map(m => {
       const item = m.items;
       const isSeller = m.seller_id === dbId;
       const otherPartyName = isSeller ? m.buyer_name : (item?.seller_name ?? 'מוכר');
@@ -518,6 +528,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         otherPartyDbId,
         messages: msgsByMatch[m.id] ?? [],
         isClosed: m.status === 'completed',
+        isArchived: m.status === 'declined',
+        isOnHold: m.status === 'on_hold',
         isSeller,
         sellerMarkedSold: m.seller_marked_sold ?? false,
       };
@@ -533,7 +545,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     if (configured && dbId) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('items') as any).insert({
+      const { error: insertError } = await (supabase.from('items') as any).insert({
         seller_id: dbId,
         seller_name: sellerName,
         name: item.name,
@@ -551,6 +563,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         sub_category: item.subCategory ?? null,
         is_available: true,
       });
+      if (insertError) console.error('addListing error:', insertError.message, insertError.code, insertError.details);
       await loadItems();
       return;
     }
@@ -603,9 +616,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (error && error.code !== '23505') {
         console.error('sendInterest error:', error.message, error.code);
       }
+      skipItem(item.id);
       return;
     }
 
+    // Configured but dbId missing → user profile not loaded, don't add fake seller request
+    if (configured && !dbId) {
+      console.error('sendInterest: Supabase configured but dbId empty — user profile not loaded');
+      return;
+    }
+
+    // Demo mode only: simulate local state
     setRequests(prev => [...prev, {
       id: `req-${Date.now()}`,
       itemId: item.id,
@@ -628,7 +649,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const newStatus = response === 'accept' ? 'accepted' : response === 'hold' ? 'on_hold' : 'declined';
 
     if (configured) {
-      await supabase.from('matches').update({ status: newStatus as 'accepted' | 'declined' }).eq('id', requestId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('matches') as any).update({ status: newStatus }).eq('id', requestId);
       if (dbId) {
         await supabase.from('messages').insert({ match_id: requestId, sender_id: dbId, text: msgText, is_read: false });
         if (response === 'accept' || response === 'hold') {
@@ -665,11 +687,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
               sellerMarkedSold: false,
               messages: [{ id: `msg-${Date.now()}`, text: msgText, from: 'seller', timestamp: ts(), date: dateStr() }],
               isClosed: false,
+              isOnHold: response === 'hold',
             };
             setChats(prev => [...prev.filter(c => c.id !== requestId), newChat]);
           }
           loadChats(); // background refresh
         }
+      }
+      if (response === 'decline') {
+        loadChats(); // refresh so buyer sees archived chat with message
       }
       await loadRequests();
       return;
@@ -690,6 +716,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
         isClosed: false,
       }]);
     }
+  }
+
+  async function updateMatchStatus(chatId: string, action: 'release' | 'close') {
+    if (!configured || !dbId) return;
+    const g = user?.gender;
+    const sorry = g === 'female' ? 'מצטערת' : g === 'male' ? 'מצטער' : 'מצטערים';
+    const newStatus = action === 'release' ? 'accepted' : 'declined';
+    const msgText = action === 'release'
+      ? 'הפריט זמין עכשיו! 🎉 אשמח לדבר איתך 😊'
+      : `הפריט לא זמין, ${sorry} 😔`;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('matches') as any).update({ status: newStatus }).eq('id', chatId);
+    await supabase.from('messages').insert({ match_id: chatId, sender_id: dbId, text: msgText, is_read: false });
+    await loadChats();
   }
 
   async function sendMessage(chatId: string, text: string, from: 'buyer' | 'seller', imageUrl?: string) {
@@ -783,7 +823,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const { data: matchData } = await supabase.from('matches').select('seller_id').eq('id', chatId).single();
       const sellerId = (matchData as { seller_id: string } | null)?.seller_id ?? null;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: reviewError } = await (supabase.from('reviews') as any).insert({
+      const { error: reviewError } = await (supabase.from('reviews') as any).upsert({
         match_id: chatId,
         reviewer_id: dbId,
         seller_id: sellerId,
@@ -791,8 +831,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         review: review || null,
         is_report: isReport,
         report_reason: (isReport && reportReason) ? reportReason : null,
-      });
-      if (reviewError) console.error('submitRating insert error:', reviewError.message, reviewError.code);
+      }, { onConflict: 'match_id,reviewer_id' });
+      if (reviewError) console.error('submitRating upsert error:', reviewError.message, reviewError.code);
       await loadReviews();
       return;
     }
@@ -807,9 +847,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }]);
   }
 
-  function deleteChat(chatId: string) {
-    hiddenChatIds.current.add(chatId);
+  async function deleteChat(chatId: string) {
+    locallyDeletedChatIds.current.add(chatId);
     setChats(prev => prev.filter(c => c.id !== chatId));
+    if (configured && dbId) {
+      const chat = chats.find(c => c.id === chatId);
+      const column = chat?.isSeller ? 'seller_hidden' : 'buyer_hidden';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('matches') as any).update({ [column]: true }).eq('id', chatId);
+    }
   }
 
   async function upgradePremium() {
@@ -845,6 +891,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       refreshChats: loadChats,
       sendInterest,
       respondToRequest,
+      updateMatchStatus,
       sendMessage,
       markSold,
       buyerConfirmSold,

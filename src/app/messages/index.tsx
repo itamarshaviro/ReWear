@@ -107,16 +107,14 @@ export default function MessagesScreen() {
   }, []));
 
   const pending = requests.filter(r => r.status === 'pending');
-  const activeChats = chats.filter(c => !c.isClosed);
-  const archivedChats = chats.filter(c => c.isClosed);
+  const activeChats = chats.filter(c => !c.isClosed && !c.isArchived);
+  const archivedChats = chats.filter(c => c.isClosed || c.isArchived);
 
   async function handleAccept(requestId: string) {
     await respondToRequest(requestId, 'accept');
-    router.push({ pathname: '/chat/[id]', params: { id: requestId } });
   }
   async function handleHold(requestId: string) {
     await respondToRequest(requestId, 'hold');
-    router.push({ pathname: '/chat/[id]', params: { id: requestId } });
   }
   function handleDecline(requestId: string) {
     respondToRequest(requestId, 'decline');

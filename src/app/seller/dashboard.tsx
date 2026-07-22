@@ -103,11 +103,9 @@ export default function DashboardScreen() {
 
   async function handleAccept(requestId: string) {
     await respondToRequest(requestId, 'accept');
-    router.push({ pathname: '/chat/[id]', params: { id: requestId } });
   }
   async function handleHold(requestId: string) {
     await respondToRequest(requestId, 'hold');
-    router.push({ pathname: '/chat/[id]', params: { id: requestId } });
   }
   function handleDecline(requestId: string) { respondToRequest(requestId, 'decline'); }
 

@@ -76,6 +76,9 @@ const BRANDS: [string, string][] = [
   // Shoes
   ['vans', 'Vans'], ['converse', 'Converse'], ['dr martens', 'Dr. Martens'],
   ['birkenstock', 'Birkenstock'], ['crocs', 'Crocs'],
+  // American
+  ['american eagle', 'American Eagle'], ['american eagle outfitters', 'American Eagle'],
+  ['hollister', 'Hollister'], ['abercrombie', 'Abercrombie & Fitch'],
   // Fast fashion
   ['zara', 'Zara'], ['mango', 'Mango'], ['h&m', 'H&M'],
   ['pull&bear', 'Pull&Bear'], ['pull and bear', 'Pull&Bear'],
@@ -110,6 +113,8 @@ const BRAND_BASE_PRICE: Record<string, number> = {
   'Pull&Bear': 65, 'ASOS': 80,
   // Budget
   'SHEIN': 35, 'Primark': 40,
+  // American
+  'American Eagle': 130, 'Hollister': 120, 'Abercrombie & Fitch': 160,
 };
 
 const CONDITION_MULT: Record<Condition, number> = {
@@ -141,14 +146,23 @@ const BRAND_TIER_MULT: Record<string, number> = {
   'Stradivarius': 0.90,
 };
 
-export function suggestPrice(brand: string | undefined, condition: Condition = 'good'): number | undefined {
-  if (!brand) return undefined; // no brand → no suggestion
-  const base: number = BRAND_BASE_PRICE[brand] ?? 0;
-  if (!base) return undefined; // unknown brand → no suggestion
-  const tierMult  = BRAND_TIER_MULT[brand] ?? 1.0;
-  const sportMult = SPORT_BRANDS.has(brand) ? 0.80 : 1.0; // sport items -20%
+const CATEGORY_BASE_PRICE: Partial<Record<Category, number>> = {
+  'mens-shirts': 110, 'womens-shirts': 100,
+  'mens-tops': 70, 'womens-tops': 70,
+  'mens-pants': 140, 'womens-pants': 130,
+  'womens-dresses': 150,
+  'mens-shoes': 190, 'womens-shoes': 180,
+  'mens-winter': 240, 'womens-winter': 230,
+  'accessories': 90,
+};
+
+export function suggestPrice(brand: string | undefined, condition: Condition = 'good', category?: Category): number | undefined {
+  const base: number = (brand ? BRAND_BASE_PRICE[brand] : 0) || (category ? CATEGORY_BASE_PRICE[category] : 0) || 0;
+  if (!base) return undefined;
+  const tierMult  = brand ? (BRAND_TIER_MULT[brand] ?? 1.0) : 1.0;
+  const sportMult = brand && SPORT_BRANDS.has(brand) ? 0.80 : 1.0;
   const price = Math.round(base * CONDITION_MULT[condition] * tierMult * sportMult);
-  return Math.max(20, Math.round(price / 5) * 5); // round to nearest 5, min ₪20
+  return Math.max(20, Math.round(price / 5) * 5);
 }
 
 // ── Category keywords ──────────────────────────────────────────────────────────
@@ -241,6 +255,8 @@ const CATEGORY_CONSTRUCT: Partial<Record<Category, { construct: string; gender: 
   'womens-dresses': { construct: 'שמלת',    gender: 'f' },
   'mens-shoes':     { construct: 'נעלי',    gender: 'p' },
   'womens-shoes':   { construct: 'נעלי',    gender: 'p' },
+  'mens-winter':    { construct: 'פריט חורף', gender: 'm' },
+  'womens-winter':  { construct: 'פריט חורף', gender: 'm' },
   'accessories':    { construct: 'אביזר של', gender: 'm' },
 };
 
@@ -270,7 +286,7 @@ function buildResult(caption: string, brand?: string, color?: string, category?:
   const name = catInfo
     ? `${catInfo.construct}${brand ? ' ' + brand : ''}${color ? ' ' + genderedColor(color, catInfo.gender) : ''}`
     : undefined;
-  const price = aiPrice ?? suggestPrice(brand, condition ?? 'good');
+  const price = aiPrice ?? suggestPrice(brand, condition ?? 'good', category);
 
   return {
     caption,
@@ -348,14 +364,16 @@ async function callVQA(base64: string, question: string): Promise<string> {
 // English labels for category hints in VQA prompts
 const CATEGORY_EN: Partial<Record<Category, string>> = {
   'mens-pants':     "men's pants or jeans",
-  'mens-shirts':    "men's shirt or jacket",
+  'mens-shirts':    "men's shirt, t-shirt, polo, or jacket",
   'mens-tops':      "men's tank top or muscle shirt",
   'mens-shoes':     "men's shoes or sneakers",
   'womens-pants':   "women's pants, jeans, or leggings",
   'womens-dresses': 'dress or skirt',
-  'womens-shirts':  "women's shirt or jacket",
+  'womens-shirts':  "women's shirt, t-shirt, or jacket",
   'womens-tops':    "women's top, camisole, or crop top",
   'womens-shoes':   "women's shoes, heels, or sandals",
+  'mens-winter':    "men's winter clothing — coat, puffer jacket, hoodie, sweater, or fleece",
+  'womens-winter':  "women's winter clothing — coat, puffer jacket, hoodie, sweater, or fleece",
   'accessories':    'accessory',
 };
 
@@ -373,6 +391,7 @@ export type RecognitionHint = {
 const VALID_CATEGORIES: Category[] = [
   'mens-pants', 'mens-shirts', 'mens-tops', 'mens-shoes',
   'womens-pants', 'womens-dresses', 'womens-shirts', 'womens-tops', 'womens-shoes',
+  'mens-winter', 'womens-winter',
   'accessories',
 ];
 const VALID_CONDITIONS: Condition[] = [
@@ -427,11 +446,17 @@ ${sellerHints ? `Seller-provided details (use as strong hints): ${sellerHints}` 
 
 Read any visible text or logos carefully — brand names are often printed or embroidered on the item.
 
+IMPORTANT category rules:
+- SLEEVELESS tops (no sleeves at all) → "${hint?.gender === 'women' ? 'womens-tops' : 'mens-tops'}" — NEVER classify sleeveless as shirts
+- Items WITH sleeves → mens-shirts or womens-shirts
+- Two leg openings → mens-pants or womens-pants
+- If the user indicated a category, strongly prefer it UNLESS the item is clearly sleeveless.
+
 Return ONLY a JSON object (no markdown, no explanation):
 {
   "brand": "brand name if ANY text/logo is visible — e.g. Rip Curl, Nike, Adidas, Zara, H&M, Levi's, Champion. null if truly invisible",
   "color": "main color in Hebrew, choose closest: שחור, לבן, אפור, כחול, נייבי, כחול בהיר, אדום, ירוק, זית, חום, ורוד, צהוב, כתום, סגול, בז', קרם, בורדו, טורקיז, כסף, זהב, צבעוני, חאקי",
-  "category": "exactly one of: mens-pants, mens-shirts, mens-tops, mens-shoes, womens-pants, womens-dresses, womens-shirts, womens-tops, womens-shoes, accessories",
+  "category": "exactly one of: mens-pants, mens-shirts, mens-tops, mens-shoes, womens-pants, womens-dresses, womens-shirts, womens-tops, womens-shoes, mens-winter, womens-winter, accessories",
   "condition": "exactly one of: new-with-tag, new-without-tag, perfect, good, fair, for-parts — based on visible wear, fading, stains, tags",
   "caption": "one sentence describing the item in English"
 }`;
@@ -484,9 +509,15 @@ async function callOpenAIVision(base64: string, mimeType: string, prompt: string
       temperature: 0.1,
     }),
   });
-  if (!res.ok) return '';
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as { error?: { code?: string; message?: string } };
+    console.error('[OpenAI]', res.status, err?.error?.message?.slice(0, 120));
+    return '';
+  }
   const data = await res.json() as { choices?: { message?: { content?: string } }[] };
-  return data.choices?.[0]?.message?.content ?? '';
+  const content = data.choices?.[0]?.message?.content ?? '';
+  console.log('[OpenAI] raw response:', content.slice(0, 200));
+  return content;
 }
 
 async function recognizeWithOpenAI(
@@ -508,11 +539,19 @@ ${sellerHints ? `\nSeller-provided details (use these as strong hints, but verif
 
 Look carefully — read ANY text or logo visible on the clothing to identify the brand.
 
+IMPORTANT category rules:
+- "mens-tops" or "womens-tops": SLEEVELESS items — tank tops, muscle shirts, singlets, camisoles, undershirts. NO SLEEVES AT ALL = tops. Use mens-tops for men, womens-tops for women.${hint?.gender ? ` This seller is selling for ${hint.gender === 'women' ? 'women → use womens-tops for sleeveless' : 'men → use mens-tops for sleeveless'}.` : ''}
+- "mens-shirts" or "womens-shirts": items WITH sleeves — t-shirts, polos, button-downs, sweatshirts. MUST have visible sleeves.
+- "mens-winter" or "womens-winter": heavy coats, puffer jackets, parkas, thick hoodies, fleece — bulky outerwear
+- "mens-pants" or "womens-pants": jeans, trousers, shorts, leggings — garments for the LEGS with two leg openings
+- NEVER classify a SLEEVELESS item as mens-shirts or womens-shirts
+- If the user indicated a category, prefer it ONLY if image confirms it
+
 Return ONLY valid JSON (no markdown):
 {
   "brand": "brand name if ANY text/logo is visible (e.g. Rip Curl, Nike, Zara, H&M, Adidas, Levi's, Champion) — null if truly invisible",
   "color": "main color in Hebrew, pick closest: שחור, לבן, אפור, כחול, נייבי, כחול בהיר, אדום, ירוק, זית, חום, ורוד, צהוב, כתום, סגול, בז', קרם, בורדו, טורקיז, זהב, כסף, צבעוני, חאקי",
-  "category": "one of: mens-pants, mens-shirts, mens-tops, mens-shoes, womens-pants, womens-dresses, womens-shirts, womens-tops, womens-shoes, accessories",
+  "category": "one of: mens-pants, mens-shirts, mens-tops, mens-shoes, womens-pants, womens-dresses, womens-shirts, womens-tops, womens-shoes, mens-winter, womens-winter, accessories",
   "condition": "one of: new-with-tag, new-without-tag, perfect, good, fair, for-parts — judge by visible wear, fading, stains, tags",
   "caption": "one sentence describing the item in English",
   "suggestedPrice": a fair secondhand resale price in Israeli shekels (NIS) as a number. Base it on: typical retail price for this brand × condition discount (new-with-tag=85%, new-without-tag=70%, perfect=55%, good=40%, fair=25%). Reference retail prices: Nike/Adidas shirt ≈ 200-300 NIS, Zara ≈ 150-250 NIS, H&M ≈ 80-150 NIS, Rip Curl/Billabong ≈ 200-350 NIS, luxury brands ≈ 800-3000 NIS. Return null if uncertain.
@@ -568,14 +607,18 @@ export async function recognizeFromUrl(
 
     // ── OpenAI path (best quality — reads text/logos accurately) ─────────────────
     if (OPENAI_KEY) {
+      console.log('[AI] trying OpenAI, key length:', OPENAI_KEY.length);
       const result = await recognizeWithOpenAI(blob, base64, hint);
-      if (result) return result;
+      if (result) { console.log('[AI] OpenAI succeeded, category:', result.category, 'color:', result.color); return result; }
+      console.warn('[AI] OpenAI returned null — falling back to Gemini');
     }
 
     // ── Gemini path (fallback if no OpenAI key) ────────────────────────────────
     if (GEMINI_KEY) {
+      console.log('[AI] trying Gemini');
       const result = await recognizeWithGemini(blob, base64, hint);
-      if (result) return result;
+      if (result) { console.log('[AI] Gemini succeeded, category:', result.category, 'color:', result.color); return result; }
+      console.warn('[AI] Gemini returned null — falling back to BLIP');
     }
 
     // ── BLIP fallback (no vision AI key configured) ────────────────────────────

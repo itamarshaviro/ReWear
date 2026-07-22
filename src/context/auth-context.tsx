@@ -152,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         registerForPushNotifications(data.id);
       } else {
         // Profile row missing — still allow login with auth data
+        console.error('handleAuthUser: no users row found for auth_id', authUser.id, '— items upload and swipe will not work');
         const meta = authUser.user_metadata ?? {};
         setUser({
           id: authUser.id,
