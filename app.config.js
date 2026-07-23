@@ -1,22 +1,26 @@
+const mapsKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
+
 module.exports = {
   expo: {
-    name: 'rewear',
+    name: 'ReWear',
     slug: 'rewear',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
     scheme: 'rewear',
-    userInterfaceStyle: 'automatic',
+    userInterfaceStyle: 'light',
     ios: {
       bundleIdentifier: 'com.rewear.app',
       supportsTablet: false,
-      icon: './assets/expo.icon',
       infoPlist: {
-        NSLocationWhenInUseUsageDescription: 'ReWear משתמשת במיקומך כדי להציג פריטים קרובים אליך.',
+        NSLocationWhenInUseUsageDescription: 'ReWear משתמש במיקומך כדי להציג פריטים קרובים אליך.',
+        NSLocationAlwaysUsageDescription: 'ReWear משתמש במיקומך כדי להציג פריטים קרובים אליך.',
+        NSCameraUsageDescription: 'ReWear צריך גישה למצלמה כדי לצלם פריטים למכירה.',
+        NSPhotoLibraryUsageDescription: 'ReWear צריך גישה לגלריה כדי לבחור תמונות לפריטים.',
         ITSAppUsesNonExemptEncryption: false,
       },
       config: {
-        googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? '',
+        googleMapsApiKey: mapsKey,
       },
     },
     android: {
@@ -28,11 +32,15 @@ module.exports = {
         monochromeImage: './assets/images/android-icon-monochrome.png',
       },
       predictiveBackGestureEnabled: false,
-      permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'],
+      permissions: [
+        'ACCESS_FINE_LOCATION',
+        'ACCESS_COARSE_LOCATION',
+        'CAMERA',
+        'READ_EXTERNAL_STORAGE',
+        'WRITE_EXTERNAL_STORAGE',
+      ],
       config: {
-        googleMaps: {
-          apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? '',
-        },
+        googleMaps: { apiKey: mapsKey },
       },
     },
     web: {
@@ -53,15 +61,24 @@ module.exports = {
         },
       ],
       [
-        'react-native-maps',
+        'expo-location',
+        { locationWhenInUsePermission: 'ReWear משתמש במיקומך כדי להציג פריטים קרובים אליך.' },
+      ],
+      [
+        'expo-image-picker',
         {
-          googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? '',
+          photosPermission: 'ReWear צריך גישה לגלריה כדי לבחור תמונות לפריטים.',
+          cameraPermission: 'ReWear צריך גישה למצלמה כדי לצלם פריטים למכירה.',
         },
+      ],
+      [
+        'react-native-maps',
+        { googleMapsApiKey: mapsKey },
       ],
     ],
     extra: {
       eas: {
-        projectId: '963a15e9-04be-477a-80a2-4e8be7a86f10',
+        projectId: '394ecf38-89c6-454d-96b6-6784be486c03',
       },
     },
     experiments: {
