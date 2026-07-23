@@ -327,26 +327,6 @@ export default function ChatScreen() {
         </View>
       )}
 
-      {chat.isOnHold && chat.isSeller && (
-        <View style={styles.holdBanner}>
-          <Text style={styles.holdBannerText}>⏸ הפריט מסומן כתפוס — מה הסטטוס?</Text>
-          <View style={styles.holdBannerBtns}>
-            <TouchableOpacity style={styles.holdRelease} onPress={() => updateMatchStatus(chat.id, 'release')} activeOpacity={0.8}>
-              <Text style={styles.holdReleaseText}>✅ הפריט זמין עכשיו</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.holdClose} onPress={() => updateMatchStatus(chat.id, 'close')} activeOpacity={0.8}>
-              <Text style={styles.holdCloseText}>❌ הפריט לא זמין</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
-      {chat.isOnHold && !chat.isSeller && (
-        <View style={styles.holdBannerBuyer}>
-          <Text style={styles.holdBannerBuyerText}>⏸ הפריט תפוס כרגע — המוכר יעדכן אותך בקרוב</Text>
-        </View>
-      )}
-
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
         <FlatList
           ref={listRef}
@@ -371,6 +351,26 @@ export default function ChatScreen() {
           onLayout={() => listRef.current?.scrollToEnd({ animated: false })}
           ListFooterComponent={chat.isArchived ? <UnavailableBubble /> : null}
         />
+
+        {chat.isOnHold && chat.isSeller && (
+          <View style={styles.holdActionBar}>
+            <Text style={styles.holdActionBarText}>⏸ מה הסטטוס של הפריט?</Text>
+            <View style={styles.holdActionBtns}>
+              <TouchableOpacity style={styles.holdClose} onPress={() => updateMatchStatus(chat.id, 'close')} activeOpacity={0.8}>
+                <Text style={styles.holdCloseText}>❌ הפריט לא זמין</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.holdRelease} onPress={() => updateMatchStatus(chat.id, 'release')} activeOpacity={0.8}>
+                <Text style={styles.holdReleaseText}>✅ הפריט זמין</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {chat.isOnHold && !chat.isSeller && (
+          <View style={styles.holdBuyerBar}>
+            <Text style={styles.holdBuyerBarText}>⏸ הפריט תפוס כרגע — המוכר יעדכן אותך בקרוב</Text>
+          </View>
+        )}
 
         {!chat.isClosed && !chat.isOnHold && !chat.isArchived && (
           <View style={styles.inputBar}>
@@ -542,33 +542,33 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   previewCloseText: { fontSize: 18, color: '#fff', fontWeight: '700' },
-  holdBanner: {
-    backgroundColor: '#FFFBEB', paddingHorizontal: 16, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: '#FCD34D', gap: 8,
+  holdActionBar: {
+    backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#FCD34D',
+    paddingHorizontal: 16, paddingVertical: 12, gap: 10,
   },
-  holdBannerText: { fontSize: 13, fontWeight: '700', color: '#D97706', textAlign: 'right' },
-  holdBannerBtns: { flexDirection: 'row-reverse', gap: 8 },
+  holdActionBarText: { fontSize: 13, fontWeight: '700', color: '#D97706', textAlign: 'right' },
+  holdActionBtns: { flexDirection: 'row-reverse', gap: 10 },
   holdRelease: {
-    flex: 1, backgroundColor: '#22C55E', borderRadius: 10,
-    paddingVertical: 9, alignItems: 'center',
+    flex: 1, backgroundColor: '#22C55E', borderRadius: 12,
+    paddingVertical: 14, alignItems: 'center',
   },
-  holdReleaseText: { fontSize: 13, fontWeight: '800', color: '#fff' },
+  holdReleaseText: { fontSize: 14, fontWeight: '800', color: '#fff' },
   holdClose: {
-    flex: 1, backgroundColor: '#FEF2F2', borderRadius: 10,
-    paddingVertical: 9, alignItems: 'center',
-    borderWidth: 1, borderColor: '#FCA5A5',
+    flex: 1, backgroundColor: '#FEF2F2', borderRadius: 12,
+    paddingVertical: 14, alignItems: 'center',
+    borderWidth: 1.5, borderColor: '#FCA5A5',
   },
-  holdCloseText: { fontSize: 13, fontWeight: '700', color: '#E11D48' },
+  holdCloseText: { fontSize: 14, fontWeight: '700', color: '#E11D48' },
+  holdBuyerBar: {
+    backgroundColor: '#FFFBEB', borderTopWidth: 1, borderTopColor: '#FCD34D',
+    paddingHorizontal: 16, paddingVertical: 16,
+  },
+  holdBuyerBarText: { fontSize: 13, fontWeight: '600', color: '#D97706', textAlign: 'center' },
   unavailableBanner: {
     backgroundColor: '#FEF2F2', paddingHorizontal: 16, paddingVertical: 10,
     borderBottomWidth: 1, borderBottomColor: '#FCA5A5',
   },
   unavailableBannerText: { fontSize: 13, fontWeight: '700', color: '#E11D48', textAlign: 'right' },
-  holdBannerBuyer: {
-    backgroundColor: '#FFFBEB', paddingHorizontal: 16, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: '#FCD34D',
-  },
-  holdBannerBuyerText: { fontSize: 13, fontWeight: '600', color: '#D97706', textAlign: 'right' },
   notFound: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   notFoundText: { fontSize: 18, color: '#6B7280' },
   backLink: { fontSize: 16, color: '#6366F1', fontWeight: '700' },
